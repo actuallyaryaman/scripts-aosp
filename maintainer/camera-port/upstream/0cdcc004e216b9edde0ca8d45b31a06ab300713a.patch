@@ -1,0 +1,36 @@
+From 0cdcc004e216b9edde0ca8d45b31a06ab300713a Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Mon, 22 Jun 2026 13:39:26 +0100
+Subject: [PATCH] vendor.prop: deduplicate OPlus camera props to
+ vendor/oplus/camera
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Camera properties (privapp.list, aux.packagelist, defercap, livephoto,
+camera.name, 10bit, privileged 3rdparty, packageexcludelist) were defined
+in both vendor.prop and vendor/oplus/camera/camera-vendor.mk. The
+camera-vendor.mk PRODUCT_PRODUCT_PROPERTIES block is the canonical
+location — remove the redundant vendor.prop entries to avoid partition
+precedence conflicts.
+
+Change-Id: I566193044da5b160946fbc91460093f62592e6c0
+---
+ vendor.prop | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/vendor.prop b/vendor.prop
+index 628d84ed..45a039b6 100644
+--- a/vendor.prop
++++ b/vendor.prop
+@@ -62,8 +62,8 @@ persist.vendor.qcom.bluetooth.aptxadaptiver2_1_support=true
+ ro.bluetooth.a2dp_offload.supported=true
+ 
+ # Camera
+-persist.vendor.camera.privapp.list=org.lineageos.aperture,com.oplus.camera,com.ss.android.ugc.aweme,org.codeaurora.snapcam
+-vendor.camera.aux.packageexcludelist=org.telegram.messenger,org.thunderdog.challegram,us.zoom.videomeetings
++# NOTE: OPlus camera properties are centralized in vendor/oplus/camera/camera-vendor.mk
++# Only non-OPlus / hardware-layer camera props should remain here.
+ 
+ # Chipset
+ ro.soc.manufacturer=QTI

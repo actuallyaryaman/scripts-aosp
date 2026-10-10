@@ -1,0 +1,105 @@
+From 3cc398bd3e1011afd344feff375f14cb1c972bf2 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Sat, 20 Jun 2026 12:50:50 +0100
+Subject: [PATCH] wm: ActivityStarter: Redirect proprietary OPlus file manager
+ intents to DocumentsUI
+
+The OPlus camera/gallery attempts to launch proprietary file managers
+(oplus.intent.action.filemanager.BROWSER_FILE or
+oppo.filemanager.intent.action.BROWSER_FILE) which are not present
+on AOSP/AlphaDroid.
+
+This intercepts those intents, maps them to the standard DocumentsUI
+directory view, and elevates the calling UID/Package to SYSTEM to
+bypass caller URI permission checks that would otherwise throw a
+SecurityException from the Gallery app.
+
+Gate the interception on the trusted OPlus camera/gallery packages in
+addition to the action, so the SYSTEM_UID elevation is not reachable by
+an arbitrary app that merely sends the proprietary action.
+---
+ .../android/server/wm/ActivityStarter.java    | 71 +++++++++++++++++++
+ 1 file changed, 71 insertions(+)
+
+diff --git a/services/core/java/com/android/server/wm/ActivityStarter.java b/services/core/java/com/android/server/wm/ActivityStarter.java
+index 99612f62d84b..040ac279b715 100644
+--- a/services/core/java/com/android/server/wm/ActivityStarter.java
++++ b/services/core/java/com/android/server/wm/ActivityStarter.java
+@@ -579,6 +579,77 @@ void resolveActivity(ActivityTaskSupervisor supervisor) {
+             ephemeralIntent = new Intent(intent);
+             // Don't modify the client's object!
+             intent = new Intent(intent);
++            final String oplusFileBrowseAction = intent.getAction();
++            final boolean isOplusFileBrowse = oplusFileBrowseAction != null
++                    && ("oplus.intent.action.filemanager.BROWSER_FILE".equals(oplusFileBrowseAction)
++                    || "oppo.filemanager.intent.action.BROWSER_FILE".equals(oplusFileBrowseAction));
++            // Only honor this for the trusted OPlus camera/gallery apps. The redirect elevates the
++            // caller to SYSTEM_UID to bypass URI permission checks, so it must not be reachable by
++            // an arbitrary app that merely sends the proprietary action.
++            final boolean isTrustedOplusCaller = callingPackage != null
++                    && ("com.oplus.camera".equals(callingPackage)
++                    || "com.oplus.gallery".equals(callingPackage)
++                    || "com.coloros.gallery3d".equals(callingPackage)
++                    || "com.oneplus.gallery".equals(callingPackage));
++            if (isOplusFileBrowse && isTrustedOplusCaller) {
++                String currentDir = intent.getStringExtra("CurrentDir");
++                if (currentDir != null) {
++                    // Extract parent directory if the path points to a file
++                    int lastSlash = currentDir.lastIndexOf('/');
++                    if (lastSlash > 0 && currentDir.substring(lastSlash).contains(".")) {
++                        currentDir = currentDir.substring(0, lastSlash);
++                    }
++
++                    String docId = null;
++                    if (currentDir.startsWith("/storage/emulated/0")) {
++                        String relPath = currentDir.substring("/storage/emulated/0".length());
++                        if (relPath.startsWith("/")) {
++                            relPath = relPath.substring(1);
++                        }
++                        docId = "primary:" + relPath;
++                    } else if (currentDir.startsWith("/storage/")) {
++                        String sub = currentDir.substring("/storage/".length());
++                        int slashIdx = sub.indexOf('/');
++                        if (slashIdx > 0) {
++                            String uuid = sub.substring(0, slashIdx);
++                            String relPath = sub.substring(slashIdx + 1);
++                            docId = uuid + ":" + relPath;
++                        } else {
++                            docId = sub + ":";
++                        }
++                    } else if (currentDir.startsWith("/sdcard")) {
++                        String relPath = currentDir.substring("/sdcard".length());
++                        if (relPath.startsWith("/")) {
++                            relPath = relPath.substring(1);
++                        }
++                        docId = "primary:" + relPath;
++                    }
++
++                    if (docId != null) {
++                        try {
++                            String encodedDocId = java.net.URLEncoder.encode(docId, "UTF-8")
++                                    .replace("+", "%20");
++                            android.net.Uri uri = android.net.Uri.parse(
++                                    "content://com.android.externalstorage.documents/document/" + encodedDocId);
++                            intent.setAction(Intent.ACTION_VIEW);
++                            intent.setDataAndType(uri, "vnd.android.document/directory");
++                            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
++                            intent.setComponent(null);
++
++                            // Elevate privileges to system so we bypass caller URI permission checks
++                            callingUid = android.os.Process.SYSTEM_UID;
++                            callingPackage = "android";
++                            realCallingUid = android.os.Process.SYSTEM_UID;
++                            realCallingPid = android.os.Process.myPid();
++                            callingPid = android.os.Process.myPid();
++                            resolvedCallingUid = android.os.Process.SYSTEM_UID;
++                            resolvedCallingPackage = "android";
++                        } catch (java.io.UnsupportedEncodingException e) {
++                            // ignore
++                        }
++                    }
++                }
++            }
+             if (intent.getComponent() != null
+                     && !(Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() == null)
+                     && !Intent.ACTION_INSTALL_INSTANT_APP_PACKAGE.equals(intent.getAction())

@@ -1,0 +1,64 @@
+From d590273a24447aa94df504efa559f22f58121df5 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Sat, 27 Jun 2026 14:36:22 +0100
+Subject: [PATCH] astonc: repoint odm camera consumers at libui_oplus
+
+extract-files.py: import the vendor/oplus/camera soong namespace and
+replace_needed libui.so -> libui_oplus.so on the five odm camera consumers
+(GraphicBuffer ABI fix). proprietary-files.txt: pin the post-fixup
+libAlgoProcess.so hash (libapsfixup add_needed).
+
+Change-Id: I077a3efe78965ca32cbdf5839a5c25d918aefcc5
+---
+ extract-files.py      | 17 +++++++++++++++++
+ proprietary-files.txt |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/extract-files.py b/extract-files.py
+index de555b1..feb2e4e 100755
+--- a/extract-files.py
++++ b/extract-files.py
+@@ -22,6 +22,9 @@
+     'hardware/pixelworks/interfaces',
+     'hardware/qcom-caf/sm8550',
+     'vendor/oneplus/sm8550-common',
++    # odm camera consumers (libEIS, libHIS, ...) are repointed at libui_oplus, which is declared in
++    # the vendor/oplus/camera soong namespace -> import it so those shared_libs deps resolve.
++    'vendor/oplus/camera',
+     'vendor/qcom/opensource/display',
+     'vendor/qcom/opensource/commonsys-intf/display',
+ ]
+@@ -47,6 +50,20 @@ def lib_fixup_vendor_suffix(lib: str, partition: str, *args, **kwargs):
+         # Pull our GOT-interposer into com.oplus.camera so it can clamp the P010 LSB->MSB
+         # over-walk (APSFormatConverter::p010LSB2MSB) that SIGSEGVs the algo CapThread.
+         .add_needed('libapsfixup.so'),
++    # OOS camera stack expects the small-ABI ColorOS libui (sizeof(GraphicBuffer)==264); AOSP-16's
++    # platform libui is larger, so its GraphicBuffer ctor overran libEIS's 264-byte alloc ->
++    # heap-header corruption -> the hold-to-record SIGSEGV. The small libui is shipped SEPARATELY
++    # as libui_oplus.so by vendor/oplus/camera (renamed so it cannot shadow the platform libui for
++    # the whole vendor partition via the /odm/${LIB} search path -> that caused a boot loop).
++    # Repoint these odm camera consumers at the isolated libui_oplus.so.
++    (
++        'odm/lib64/libEIS.so',
++        'odm/lib64/libHIS.so',
++        'odm/lib64/libsharebuffer_impl.so',
++        'odm/lib64/hw/camera.oemlayer.so',
++        'odm/lib64/camera/components/com.oplus.node.sstabphoto.so',
++    ): blob_fixup()
++        .replace_needed('libui.so', 'libui_oplus.so'),
+     (
+         'odm/lib64/libCOppLceTonemapAPI.so',
+         'odm/lib64/libSuperRaw.so',
+diff --git a/proprietary-files.txt b/proprietary-files.txt
+index 4676c9b..7c35f0a 100644
+--- a/proprietary-files.txt
++++ b/proprietary-files.txt
+@@ -890,7 +890,7 @@ odm/lib64/hw/camera.oemlayer.so|1da3d1cb3e56ac9d957ac07d7b6dd167c1b5220a
+ odm/lib64/lib2DSlender.so|f06fb8f97568fb6e5179d248ce4d056bfea0db26
+ odm/lib64/libAF.so|e3d751ab63a7c5f9fd7764f504c114095c966fc4
+ odm/lib64/libAlgoInterface.so|052b435a1d7492657222c21e10cfa54dd392e047
+-odm/lib64/libAlgoProcess.so|94c247bc86002e08962a92a7721da8a02772a249|df92a2c83488f52fbede90256ac4939726437b24
++odm/lib64/libAlgoProcess.so|94c247bc86002e08962a92a7721da8a02772a249|1d11fd6e0627daeea065b0326f1bce9aec2a8225
+ odm/lib64/libAncFilter.so|3d227c96ed1fba725b3da5f377be8f067421cf7c
+ odm/lib64/libAncHumVideoBase.so|ad5faf4c58d9dcd1550dbb284ada107eb8792e3b
+ odm/lib64/libAncHumanDoubleExposure.so|2cd9ad2c38ab5fe18a775331720eb7288e149e8b

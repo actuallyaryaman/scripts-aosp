@@ -1,0 +1,236 @@
+From 3c829129b473752ce876c35064fe877488ed6c33 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Thu, 25 Jun 2026 18:27:37 +0100
+Subject: [PATCH] =?UTF-8?q?base:=20ImageReader.getOplusHardwareBuffer()=20?=
+ =?UTF-8?q?=E2=80=94=20OnePlus=20camera=20no-cleaner=20HardwareBuffer?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Faithfully replicate stock OnePlus's getOplusHardwareBuffer path (derived from
+stock framework.jar + libandroid_runtime.so disasm, not the old reverted commit):
+
+- HardwareBuffer: add the no-cleaner (long, boolean) ctor (no NativeAllocationRegistry
+  cleaner registered) and make close() free the native object directly via the same
+  finalizer for that path (mCleaner == null), leaving the normal cleaner path untouched
+  (no double-free).
+- android_hardware_HardwareBuffer: add createOplusFromGraphicBuffer() helper that wraps
+  a GraphicBuffer via the no-cleaner ctor, with a cached (JZ)V methodID.
+- ImageReader: add SurfaceImage.getOplusHardwareBuffer() + nativeGetOplusHardwareBuffer(),
+  and Image_getOplusHardwareBuffer() JNI registered in gImageMethods.
+
+The OnePlus camera (APS) SDK reflectively calls getOplusHardwareBuffer(); without it the
+SDK falls back to getHardwareBuffer(), whose GC-cleaner buffer can be freed while APS
+still holds a raw pointer. Verified live: the SDK takes this path (no fallback), buffers
+are valid and bounded. Includes Log.i/ALOGI diagnostics.
+---
+ .../java/android/hardware/HardwareBuffer.java | 32 +++++++++++++++++--
+ core/java/android/media/ImageReader.java      | 17 ++++++++++
+ core/jni/android_hardware_HardwareBuffer.cpp  | 29 +++++++++++++++++
+ core/jni/android_media_ImageReader.cpp        | 20 ++++++++++++
+ .../android_hardware_HardwareBuffer.h         |  8 +++++
+ 5 files changed, 103 insertions(+), 3 deletions(-)
+
+diff --git a/core/java/android/hardware/HardwareBuffer.java b/core/java/android/hardware/HardwareBuffer.java
+index b132fd4ac67d0..692d7a7dd525c 100644
+--- a/core/java/android/hardware/HardwareBuffer.java
++++ b/core/java/android/hardware/HardwareBuffer.java
+@@ -400,6 +400,23 @@ private HardwareBuffer(long nativeObject) {
+         mCloseGuard.open("HardwareBuffer.close");
+     }
+ 
++    /**
++     * Private use only. Called from JNI
++     * (ImageReader$SurfaceImage#nativeGetOplusHardwareBuffer) for the OnePlus camera (APS)
++     * pipeline. No-cleaner variant of {@link #HardwareBuffer(long)}: it intentionally does
++     * NOT register a {@link NativeAllocationRegistry} cleaner. The native object is a
++     * GraphicBufferWrapper whose buffer is shared with APS, which keeps a raw pointer to it
++     * across async frames; an eager GC cleaner could free it mid-use (the hold-to-record
++     * use-after-free). Instead the buffer is freed deterministically in {@link #close()} /
++     * {@link #finalize()} via the native finalizer. Mirrors the stock OnePlus framework's
++     * {@code HardwareBuffer(long, boolean)} constructor; the boolean only selects this overload
++     * and leaves {@link #mCleaner} {@code null}.
++     */
++    private HardwareBuffer(long nativeObject, boolean isOplusLogic) {
++        mNativeObject = nativeObject;
++        mCloseGuard.open("HardwareBuffer.close");
++    }
++
+     @Override
+     protected void finalize() throws Throwable {
+         try {
+@@ -487,9 +504,18 @@ private void checkClosed(String name) {
+     public void close() {
+         if (!isClosed()) {
+             mCloseGuard.close();
+-            mNativeObject = 0;
+-            mCleaner.run();
+-            mCleaner = null;
++            if (mCleaner != null) {
++                // Standard path: the NativeAllocationRegistry cleaner owns the native object.
++                mNativeObject = 0;
++                mCleaner.run();
++                mCleaner = null;
++            } else {
++                // OnePlus getOplusHardwareBuffer() no-cleaner path: no cleaner was registered,
++                // so free the native object directly via the same finalizer the registry would
++                // have used. Mirrors stock OnePlus HardwareBuffer.close().
++                NativeAllocationRegistry.applyFreeFunction(nGetNativeFinalizer(), mNativeObject);
++                mNativeObject = 0;
++            }
+         }
+     }
+ 
+diff --git a/core/java/android/media/ImageReader.java b/core/java/android/media/ImageReader.java
+index 6dfaefaf733df..78c1229f10201 100644
+--- a/core/java/android/media/ImageReader.java
++++ b/core/java/android/media/ImageReader.java
+@@ -39,6 +39,7 @@
+ import android.os.ParcelFileDescriptor;
+ import android.os.SystemProperties;
+ import android.os.Trace;
++import android.util.Log;
+ import android.view.Surface;
+ 
+ import com.android.internal.camera.flags.Flags;
+@@ -1295,6 +1296,21 @@ public HardwareBuffer getHardwareBuffer() {
+             return nativeGetHardwareBuffer();
+         }
+ 
++        /**
++         * OnePlus camera (APS) extension. Returns a {@link HardwareBuffer} with no
++         * NativeAllocationRegistry GC cleaner (its lifetime is owned by close()/finalize()),
++         * unlike {@link #getHardwareBuffer()}. The OnePlus camera SDK calls this reflectively;
++         * without it the SDK falls back to getHardwareBuffer(), whose GC-managed buffer can be
++         * freed while APS still holds a raw pointer to it during hold-to-record (use-after-free).
++         */
++        public HardwareBuffer getOplusHardwareBuffer() {
++            throwISEIfImageIsInvalid();
++            HardwareBuffer hb = nativeGetOplusHardwareBuffer();
++            Log.i("ImageReader", "getOplusHardwareBuffer() -> " + hb
++                    + " (no-cleaner; APS-owned lifetime)");
++            return hb;
++        }
++
+         @Override
+         public @NamedDataSpace int getDataSpace() {
+             throwISEIfImageIsInvalid();
+@@ -1450,6 +1466,7 @@ private synchronized native SurfacePlane[] nativeCreatePlanes(int numPlanes,
+         private synchronized native int nativeGetFormat(int readerFormat);
+         private synchronized native int nativeGetFenceFd();
+         private synchronized native HardwareBuffer nativeGetHardwareBuffer();
++        private synchronized native HardwareBuffer nativeGetOplusHardwareBuffer();
+     }
+ 
+     private synchronized native void nativeInit(Object weakSelf, int w, int h, int maxImgs,
+diff --git a/core/jni/android_hardware_HardwareBuffer.cpp b/core/jni/android_hardware_HardwareBuffer.cpp
+index c8059f39a34a6..7f53ba00473bd 100644
+--- a/core/jni/android_hardware_HardwareBuffer.cpp
++++ b/core/jni/android_hardware_HardwareBuffer.cpp
+@@ -56,6 +56,8 @@ static struct {
+     jclass clazz;
+     jfieldID mNativeObject;
+     jmethodID ctor;
++    // No-cleaner (J,Z) ctor used by the OnePlus camera getOplusHardwareBuffer() path.
++    jmethodID oplusCtor;
+ } gHardwareBufferClassInfo;
+ 
+ class GraphicBufferWrapper {
+@@ -247,6 +249,31 @@ jobject android_hardware_HardwareBuffer_createFromAHardwareBuffer(
+     return hardwareBufferObj;
+ }
+ 
++jobject android_hardware_HardwareBuffer_createOplusFromGraphicBuffer(
++        JNIEnv* env, const sp<GraphicBuffer>& buffer) {
++    // Mirrors stock OnePlus libandroid_runtime's Image_getOplusHardwareBuffer: wrap the
++    // GraphicBuffer (taking a strong ref via the sp<> in GraphicBufferWrapper) and build the
++    // Java HardwareBuffer through the no-cleaner (J,Z) constructor. Unlike
++    // createFromAHardwareBuffer(), this deliberately avoids registering a
++    // NativeAllocationRegistry cleaner: the OnePlus camera (APS) pipeline keeps a raw pointer
++    // to this buffer across async frames, so letting the GC free it eagerly is the
++    // hold-to-record use-after-free. The wrapper is freed deterministically in
++    // HardwareBuffer.close()/finalize() instead.
++    GraphicBufferWrapper* wrapper = new GraphicBufferWrapper(buffer);
++    jobject hardwareBufferObj = env->NewObject(gHardwareBufferClassInfo.clazz,
++            gHardwareBufferClassInfo.oplusCtor, reinterpret_cast<jlong>(wrapper), JNI_TRUE);
++    if (hardwareBufferObj == NULL) {
++        delete wrapper;
++        if (env->ExceptionCheck()) {
++            ALOGE("Could not create OnePlus HardwareBuffer from GraphicBuffer.");
++            LOGE_EX(env);
++            env->ExceptionClear();
++        }
++        return nullptr;
++    }
++    return hardwareBufferObj;
++}
++
+ uint32_t android_hardware_HardwareBuffer_convertFromPixelFormat(uint32_t format) {
+     return AHardwareBuffer_convertFromPixelFormat(format);
+ }
+@@ -305,6 +332,8 @@ int register_android_hardware_HardwareBuffer(JNIEnv* env) {
+             gHardwareBufferClassInfo.clazz, "mNativeObject", "J");
+     gHardwareBufferClassInfo.ctor = GetMethodIDOrDie(env,
+             gHardwareBufferClassInfo.clazz, "<init>", "(J)V");
++    gHardwareBufferClassInfo.oplusCtor = GetMethodIDOrDie(env,
++            gHardwareBufferClassInfo.clazz, "<init>", "(JZ)V");
+ 
+     return err;
+ }
+diff --git a/core/jni/android_media_ImageReader.cpp b/core/jni/android_media_ImageReader.cpp
+index 3046ce99e1f07..b348b9f0c0c1a 100644
+--- a/core/jni/android_media_ImageReader.cpp
++++ b/core/jni/android_media_ImageReader.cpp
+@@ -997,6 +997,24 @@ static jobject Image_getHardwareBuffer(JNIEnv* env, jobject thiz) {
+     // to link against libandroid.so
+     return android_hardware_HardwareBuffer_createFromAHardwareBuffer(env, b);
+ }
++
++// OnePlus camera (APS) extension. The OnePlus camera SDK reflectively calls
++// ImageReader$SurfaceImage.getOplusHardwareBuffer(); if it is absent the SDK falls back to the
++// standard getHardwareBuffer(), whose HardwareBuffer carries a NativeAllocationRegistry GC
++// cleaner. APS holds a raw pointer to the buffer across async frames during hold-to-record, so
++// the GC can free it mid-use -> use-after-free. This variant returns a HardwareBuffer with no
++// cleaner (lifetime owned by close()/finalize()), matching stock OnePlus behavior.
++static jobject Image_getOplusHardwareBuffer(JNIEnv* env, jobject thiz) {
++    BufferItem* buffer = Image_getBufferItem(env, thiz);
++    if (buffer == nullptr || buffer->mGraphicBuffer == nullptr) {
++        jniThrowException(env, "java/lang/IllegalStateException",
++                "Image is not initialized");
++        return NULL;
++    }
++    ALOGI("getOplusHardwareBuffer: GraphicBuffer=%p (id=%" PRIu64 ") -> no-cleaner HardwareBuffer",
++          buffer->mGraphicBuffer.get(), buffer->mGraphicBuffer->getId());
++    return android_hardware_HardwareBuffer_createOplusFromGraphicBuffer(env, buffer->mGraphicBuffer);
++}
+ #endif
+ 
+ } // extern "C"
+@@ -1030,6 +1048,8 @@ static const JNINativeMethod gImageMethods[] = {
+ #ifdef __ANDROID__
+         {"nativeGetHardwareBuffer", "()Landroid/hardware/HardwareBuffer;",
+          (void*)Image_getHardwareBuffer},
++        {"nativeGetOplusHardwareBuffer", "()Landroid/hardware/HardwareBuffer;",
++         (void*)Image_getOplusHardwareBuffer},
+ #endif
+ };
+ 
+diff --git a/core/jni/include/android_runtime/android_hardware_HardwareBuffer.h b/core/jni/include/android_runtime/android_hardware_HardwareBuffer.h
+index 964c28f0a49f4..b6c9606e3c0a5 100644
+--- a/core/jni/include/android_runtime/android_hardware_HardwareBuffer.h
++++ b/core/jni/include/android_runtime/android_hardware_HardwareBuffer.h
+@@ -32,6 +32,14 @@ extern AHardwareBuffer* android_hardware_HardwareBuffer_getNativeHardwareBuffer(
+ extern jobject android_hardware_HardwareBuffer_createFromAHardwareBuffer(
+         JNIEnv* env, AHardwareBuffer* hardwareBuffer);
+ 
++/*
++ * Returns a HardwareBuffer wrapping the given GraphicBuffer using the OnePlus camera
++ * no-cleaner constructor (no NativeAllocationRegistry cleaner is registered; the buffer is
++ * freed in HardwareBuffer.close()/finalize()). Used by ImageReader.getOplusHardwareBuffer().
++ */
++extern jobject android_hardware_HardwareBuffer_createOplusFromGraphicBuffer(
++        JNIEnv* env, const sp<GraphicBuffer>& buffer);
++
+ /* Convert from HAL_PIXEL_FORMAT values to AHARDWAREBUFFER_FORMAT values. */
+ extern uint32_t android_hardware_HardwareBuffer_convertFromPixelFormat(uint32_t format);
+ 

@@ -1,0 +1,45 @@
+From fab34f2789c83969913e925ace68566f7e10fa21 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Mon, 22 Jun 2026 13:39:33 +0100
+Subject: [PATCH] extract-files: add APS turbo libs to vendor
+ public.libraries.txt
+
+The camera app's classloader namespace cannot dlopen the /odm ArcSoft
+and QNN helper libs directly. Adding them to public.libraries.txt via
+the blob fixup exposes them in the vendor namespace so the app can
+resolve libarcsoft_turbo_raw, QNN HTP, and the libapsfixup shim.
+
+Change-Id: Ibb8aa47b4187b553485ef7cdd46401e2fea441bb
+---
+ extract-files.py | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/extract-files.py b/extract-files.py
+index 0ab0a2d9..4f92a65b 100755
+--- a/extract-files.py
++++ b/extract-files.py
+@@ -98,6 +98,24 @@ def lib_fixup_vendor_suffix(lib: str, partition: str, *args, **kwargs):
+         .add_needed('libcodec2_shim.so'),
+     'vendor/lib64/vendor.libdpmframework.so': blob_fixup()
+         .add_needed('libhidlbase_shim.so'),
++    # APS turbo fix: on the port, the camera app's classloader namespace cannot dlopen the /odm
++    # ArcSoft/QNN helper libs (couple-HDR, turbo, QNN HTP), which gates the DSP/QNN path so turbo
++    # can't run. Exposing them as vendor public libraries lets the app namespace resolve them.
++    'vendor/etc/public.libraries.txt': blob_fixup()
++        .add_line_if_missing('libarcsoft_hdr_couple_api.so')
++        .add_line_if_missing('libarcsoft_high_dynamic_range_couple.so')
++        .add_line_if_missing('libarcsoft_smart_denoise.so')
++        .add_line_if_missing('libarcsoft_turbo_hdr_raw.so')
++        .add_line_if_missing('libarcsoft_turbo_raw.so')
++        .add_line_if_missing('libarcsoft_qnnhtp.so')
++        .add_line_if_missing('libQnnHtp.so')
++        .add_line_if_missing('libQnnSystem.so')
++        .add_line_if_missing('libQnnHtpV73Stub.so')
++        .add_line_if_missing('libQnnGpu.so')
++        .add_line_if_missing('libAlgoProcess.so')
++        .add_line_if_missing('libOplusSecurity.so')
++        .add_line_if_missing('libalog.so')
++        .add_line_if_missing('libapsfixup.so'),
+ }  # fmt: skip
+ 
+ module = ExtractUtilsModule(

@@ -1,0 +1,25 @@
+From b08eaeb72fea208417cfed7b799e0fba991d84bb Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Sun, 14 Jun 2026 11:00:42 +0100
+Subject: [PATCH] native: bump BINDER_VM_SIZE 1MB->4MB for OPlus camera
+ RAW/Master capture
+
+The OPlus camera RAW/Master-mode capture path transfers large buffers over
+binder; the default 1MB binder VM is insufficient. Matches the dodge reference.
+---
+ libs/binder/ProcessState.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libs/binder/ProcessState.cpp b/libs/binder/ProcessState.cpp
+index f7d53472a5..8af14bd30f 100644
+--- a/libs/binder/ProcessState.cpp
++++ b/libs/binder/ProcessState.cpp
+@@ -45,7 +45,7 @@
+ #include <unistd.h>
+ #include <mutex>
+ 
+-#define BINDER_VM_SIZE ((1 * 1024 * 1024) - sysconf(_SC_PAGE_SIZE) * 2)
++#define BINDER_VM_SIZE ((4 * 1024 * 1024) - sysconf(_SC_PAGE_SIZE) * 2)
+ #define DEFAULT_MAX_BINDER_THREADS 15
+ #define DEFAULT_ENABLE_ONEWAY_SPAM_DETECTION 1
+ 

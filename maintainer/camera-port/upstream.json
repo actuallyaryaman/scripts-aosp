@@ -1,0 +1,197 @@
+{
+  "schema": 1,
+  "patches": [
+    {
+      "repo": "hardware/oplus",
+      "ref": "ee67f441b26067b7d6ce03afe803b158988015ca",
+      "url": "https://github.com/AlphaDroid-Project/hardware_oplus/commit/ee67f441b26067b7d6ce03afe803b158988015ca.patch",
+      "commit": "ee67f441b26067b7d6ce03afe803b158988015ca",
+      "sha256": "ec08bfec7cc98a4c15050b3762ead3fa8f6de73e567063d21b64330b587a2453",
+      "file": "upstream/ee67f441b26067b7d6ce03afe803b158988015ca.patch"
+    },
+    {
+      "repo": "hardware/oplus",
+      "ref": "5b9fb08a0604aee3bc15ab3631db2194d021de3c",
+      "url": "https://github.com/AlphaDroid-Project/hardware_oplus/commit/5b9fb08a0604aee3bc15ab3631db2194d021de3c.patch",
+      "commit": "5b9fb08a0604aee3bc15ab3631db2194d021de3c",
+      "sha256": "7e6937da15083ba288d0603335070a1a6715efd14a5e3a1887dd394175af4e93",
+      "file": "upstream/5b9fb08a0604aee3bc15ab3631db2194d021de3c.patch"
+    },
+    {
+      "repo": "hardware/oplus",
+      "ref": "1e800dad381afff87087435ed97117968ae86b16",
+      "url": "https://github.com/AlphaDroid-Project/hardware_oplus/commit/1e800dad381afff87087435ed97117968ae86b16.patch",
+      "commit": "1e800dad381afff87087435ed97117968ae86b16",
+      "sha256": "75db36c131b3300e38ccd2db55b874408ddfc94a5095c1a5f5fda3c5c72bcdc0",
+      "file": "upstream/1e800dad381afff87087435ed97117968ae86b16.patch"
+    },
+    {
+      "repo": "hardware/oplus",
+      "ref": "ae13ee2691bde0826cf2fc7bd53253ff330af8b4",
+      "url": "https://github.com/AlphaDroid-Project/hardware_oplus/commit/ae13ee2691bde0826cf2fc7bd53253ff330af8b4.patch",
+      "commit": "ae13ee2691bde0826cf2fc7bd53253ff330af8b4",
+      "sha256": "065a119575fdffd17bdac53d8024f9973c73ebad3e8d666d94f3591d9d195943",
+      "file": "upstream/ae13ee2691bde0826cf2fc7bd53253ff330af8b4.patch"
+    },
+    {
+      "repo": "hardware/oplus",
+      "ref": "0844be0",
+      "url": "https://github.com/AlphaDroid-Project/hardware_oplus/commit/0844be0.patch",
+      "commit": "0844be0629475bfc4a91ef26c15c770faf51e496",
+      "sha256": "84bec1a3e238a6d25d2986893ac6e2ba77a104798dc8c2c8a4e065e6e9654375",
+      "file": "upstream/0844be0.patch"
+    },
+    {
+      "repo": "frameworks/native",
+      "ref": "b08eaeb72fea208417cfed7b799e0fba991d84bb",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_native/commit/b08eaeb72fea208417cfed7b799e0fba991d84bb.patch",
+      "commit": "b08eaeb72fea208417cfed7b799e0fba991d84bb",
+      "sha256": "c9bf71c9a65b9a582f9144dfd5f804eda867354837a485e389117546c04a74f5",
+      "file": "upstream/b08eaeb72fea208417cfed7b799e0fba991d84bb.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "89dc8116d1dc8d31d969a62c604dcb99eb27fdb5",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/89dc8116d1dc8d31d969a62c604dcb99eb27fdb5.patch",
+      "commit": "89dc8116d1dc8d31d969a62c604dcb99eb27fdb5",
+      "sha256": "b87dd3281a8871abb64f5001aadef1bb68747ef2a55e6dd72a45b7c9db3808bf",
+      "file": "upstream/89dc8116d1dc8d31d969a62c604dcb99eb27fdb5.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "9ea563b1d37f9e5f95b93a467b2f4417b1e9803b",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/9ea563b1d37f9e5f95b93a467b2f4417b1e9803b.patch",
+      "commit": "9ea563b1d37f9e5f95b93a467b2f4417b1e9803b",
+      "sha256": "d2ea8dd7eb4037f5f7d7397e6abf20efcb2478d9835a8f59d5bde43c47510792",
+      "file": "upstream/9ea563b1d37f9e5f95b93a467b2f4417b1e9803b.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "957d3f369e7c6f56d028110fc550f06edf023c7f",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/957d3f369e7c6f56d028110fc550f06edf023c7f.patch",
+      "commit": "957d3f369e7c6f56d028110fc550f06edf023c7f",
+      "sha256": "445b70dfb16fd51d433daa98faa167941e07b77e78677951f5221abe951515d4",
+      "file": "upstream/957d3f369e7c6f56d028110fc550f06edf023c7f.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "0a038727d4f9a1cd80bfab8e80b244aa5e6a4338",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/0a038727d4f9a1cd80bfab8e80b244aa5e6a4338.patch",
+      "commit": "0a038727d4f9a1cd80bfab8e80b244aa5e6a4338",
+      "sha256": "f9147f00ab573c0ef6c5cc40d9b03dc5fce514b06373a4e8bb257bbd5d730dbb",
+      "file": "upstream/0a038727d4f9a1cd80bfab8e80b244aa5e6a4338.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "a2be3ce5f78e9cae2caed3efd5a8cf5bf215af38",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/a2be3ce5f78e9cae2caed3efd5a8cf5bf215af38.patch",
+      "commit": "a2be3ce5f78e9cae2caed3efd5a8cf5bf215af38",
+      "sha256": "ed2ae2a0882cfa26e3bb7c65c3e393af0ebe2973d11758638307b8536315f1cc",
+      "file": "upstream/a2be3ce5f78e9cae2caed3efd5a8cf5bf215af38.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "077683f1991189dfa3c8c8e4a6e6839d8150496c",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/077683f1991189dfa3c8c8e4a6e6839d8150496c.patch",
+      "commit": "077683f1991189dfa3c8c8e4a6e6839d8150496c",
+      "sha256": "9f0085ee1a94123c0c7e8a394fa3e815949345ea1ba6c911425d3d25e90fc73e",
+      "file": "upstream/077683f1991189dfa3c8c8e4a6e6839d8150496c.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "de748da181db07d6f3923646a972fc8f6414adb5",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/de748da181db07d6f3923646a972fc8f6414adb5.patch",
+      "commit": "de748da181db07d6f3923646a972fc8f6414adb5",
+      "sha256": "e2618a1af6d399c4f7e73a5f632306f2940766478ded1844d092626aa3c3b56c",
+      "file": "upstream/de748da181db07d6f3923646a972fc8f6414adb5.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "a3213dfbb8",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/a3213dfbb8.patch",
+      "commit": "a3213dfbb8c323c7f5e560f241aca5eef0ce2ed0",
+      "sha256": "66e06de422dd9f3470422274726aef32b56933dea2f42993c94db4c3a0a65cb0",
+      "file": "upstream/a3213dfbb8.patch"
+    },
+    {
+      "repo": "frameworks/av",
+      "ref": "bcfada7586",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_av/commit/bcfada7586.patch",
+      "commit": "bcfada7586ba314e6baa7fe222b96b3676ebeae1",
+      "sha256": "a51771e7100df2e13f9ec202a20fdfba3ae246bc72e412250626687e312b65ff",
+      "file": "upstream/bcfada7586.patch"
+    },
+    {
+      "repo": "frameworks/base",
+      "ref": "3cc398bd3e10",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_base/commit/3cc398bd3e10.patch",
+      "commit": "3cc398bd3e1011afd344feff375f14cb1c972bf2",
+      "sha256": "9276b9e54304294873ca75c8484e00019ef323feb68256b77204eda3feb22570",
+      "file": "upstream/3cc398bd3e10.patch"
+    },
+    {
+      "repo": "frameworks/base",
+      "ref": "3c829129b473",
+      "url": "https://github.com/AlphaDroid-Project/frameworks_base/commit/3c829129b473.patch",
+      "commit": "3c829129b473752ce876c35064fe877488ed6c33",
+      "sha256": "cde512e3a3b48dd43339f0042f2b68067157128f93f5735edc962dfb94b927aa",
+      "file": "upstream/3c829129b473.patch"
+    },
+    {
+      "repo": "device/oneplus/sm8550-common",
+      "ref": "0cdcc004e216b9edde0ca8d45b31a06ab300713a",
+      "url": "https://github.com/AlphaDroid-devices/device_oneplus_sm8550-common/commit/0cdcc004e216b9edde0ca8d45b31a06ab300713a.patch",
+      "commit": "0cdcc004e216b9edde0ca8d45b31a06ab300713a",
+      "sha256": "2a69073409d14ab08f36f251491ab207e76eeb2a44edf4393277e173614b07ec",
+      "file": "upstream/0cdcc004e216b9edde0ca8d45b31a06ab300713a.patch"
+    },
+    {
+      "repo": "device/oneplus/sm8550-common",
+      "ref": "fab34f2789c83969913e925ace68566f7e10fa21",
+      "url": "https://github.com/AlphaDroid-devices/device_oneplus_sm8550-common/commit/fab34f2789c83969913e925ace68566f7e10fa21.patch",
+      "commit": "fab34f2789c83969913e925ace68566f7e10fa21",
+      "sha256": "a8725d7e51225d7acaec4a827e3da92b4d445adf866de72c7a26b017b9a1768b",
+      "file": "upstream/fab34f2789c83969913e925ace68566f7e10fa21.patch"
+    },
+    {
+      "repo": "device/qcom/sepolicy_vndr/sm8550",
+      "ref": "c316e0bc8f9557b2a71830021cbb44b1a2c6358f",
+      "url": "https://github.com/AlphaDroid-Project/device_qcom_sepolicy_vndr/commit/c316e0bc8f9557b2a71830021cbb44b1a2c6358f.patch",
+      "commit": "c316e0bc8f9557b2a71830021cbb44b1a2c6358f",
+      "sha256": "9123d36c552f9d795eb00497879e43e640a2ed7a8199fa16fe846aefa392162b",
+      "file": "upstream/c316e0bc8f9557b2a71830021cbb44b1a2c6358f.patch"
+    },
+    {
+      "repo": "camera-reference-only",
+      "ref": "b0a4fef66d973e42ef41917facaf401b31c4bd5d",
+      "url": "https://github.com/AlphaDroid-devices/device_oneplus_astonc/commit/b0a4fef66d973e42ef41917facaf401b31c4bd5d.patch",
+      "commit": "b0a4fef66d973e42ef41917facaf401b31c4bd5d",
+      "sha256": "52447c5faaad274c544f8eed989fd85350988110847d49806715c589d83270bb",
+      "file": "upstream/b0a4fef66d973e42ef41917facaf401b31c4bd5d.patch"
+    },
+    {
+      "repo": "camera-reference-only",
+      "ref": "d590273",
+      "url": "https://github.com/AlphaDroid-devices/device_oneplus_astonc/commit/d590273.patch",
+      "commit": "d590273a24447aa94df504efa559f22f58121df5",
+      "sha256": "55671738be96aca594f3cecb766c83c892fd2c544b92f83d2b1831a62dd71195",
+      "file": "upstream/d590273.patch"
+    },
+    {
+      "repo": "camera-reference-only",
+      "ref": "d012215",
+      "url": "https://github.com/AlphaDroid-devices/device_oneplus_astonc/commit/d012215.patch",
+      "commit": "d01221530cfe371443e71e04808d1621a7436578",
+      "sha256": "a20f0a8afad6cd19a773530c915db5a6cf0ec7699f2c94c97828a3ee96e79c16",
+      "file": "upstream/d012215.patch"
+    },
+    {
+      "repo": "camera-reference-only",
+      "ref": "f75b8ba",
+      "url": "https://github.com/AlphaDroid-devices/device_oneplus_astonc/commit/f75b8ba.patch",
+      "commit": "f75b8ba0649e542d76dd5f175a54c6c9944d7812",
+      "sha256": "f5e5f05957c57f52949175ae93fe3d2dafdb70c89bb5a8ecfbf698ea12aaf10d",
+      "file": "upstream/f75b8ba.patch"
+    }
+  ]
+}

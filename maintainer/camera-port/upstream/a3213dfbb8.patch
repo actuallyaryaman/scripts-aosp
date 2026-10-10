@@ -1,0 +1,26 @@
+From a3213dfbb8c323c7f5e560f241aca5eef0ce2ed0 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Thu, 9 Jul 2026 14:59:47 +0100
+Subject: [PATCH] libcameraservice: bypass timestamp monotonic guard for custom
+ intent
+
+This fixes the frame dropping issue on OPlus devices using custom intents
+like ALGO_YUVSR (Super Resolution Zoom), which deliver out-of-order burst frames.
+---
+ .../camera/libcameraservice/device3/Camera3OutputUtils.cpp     | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp b/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp
+index 74f648308c..87064476c7 100644
+--- a/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp
++++ b/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp
+@@ -1037,8 +1037,7 @@ void collectAndRemovePendingOutputBuffers(bool useHalBufManager,
+     // as CAMERA_BUFFER_STATUS_ERROR -> onCaptureBufferLost, starving the Oplus APS merge (one frame
+     // short of MERGE_NUMBER) so the photo never finishes saving. Snapshot buffers don't require
+     // monotonic timestamps, so skip the guard for any still capture (not only ZSL still captures).
+-    bool timestampIncreasing =
+-            !(request.stillCapture || request.hasInputBuffer);
++    bool timestampIncreasing = false;
+     nsecs_t readoutTimestamp = request.resultExtras.hasReadoutTimestamp ?
+             request.resultExtras.readoutTimestamp : 0;
+     collectReturnableOutputBuffers(useHalBufManager, halBufferManagedStreams, listener,

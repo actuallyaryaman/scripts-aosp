@@ -1,0 +1,32 @@
+From c316e0bc8f9557b2a71830021cbb44b1a2c6358f Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Sun, 14 Jun 2026 17:42:53 +0100
+Subject: [PATCH] sm8550: Add opluscamera_app to DSP neverallow exceptions
+
+Explicitly adds opluscamera_app to the neverallow blocks for vendor_xdsp_device and vendor_qdsp_device to permit the OPlus APS/ArcSoft engine to safely open FastRPC sessions without violating platform bounds.
+
+Change-Id: I5e208fec80df931b92b10874dfa6c8b58e097cc3
+---
+ generic/vendor/common/domain.te | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/generic/vendor/common/domain.te b/generic/vendor/common/domain.te
+index 0f4f0539..9d7424cb 100644
+--- a/generic/vendor/common/domain.te
++++ b/generic/vendor/common/domain.te
+@@ -89,6 +89,7 @@ userdebug_or_eng(` -vendor_usta_app')
+ userdebug_or_eng(` -vendor_ustaservice_app')
+ userdebug_or_eng(` -vendor_sysmonapp_app_test')
+ userdebug_or_eng(` -vendor_snapcam_app')
++- opluscamera_app
+ }vendor_xdsp_device:chr_file *;
+ 
+ neverallow { domain -init -vendor_init - ueventd } vendor_xdsp_device:chr_file ~{r_file_perms};
+@@ -111,6 +112,6 @@ neverallow { domain
+ userdebug_or_eng(` -vendor_sysmonapp_app_test')
+ } vendor_qdsp_device:chr_file *;
+ neverallow { domain -init -vendor_init - ueventd } vendor_qdsp_device:chr_file ~{r_file_perms};
+-neverallow { appdomain - shell userdebug_or_eng(`-vendor_sysmonapp_app_test') } vendor_qdsp_device:chr_file ~{ioctl read};
++neverallow { appdomain - shell userdebug_or_eng(`-vendor_sysmonapp_app_test') - opluscamera_app } vendor_qdsp_device:chr_file ~{ioctl read};
+ neverallow mediacodec vendor_qdsp_device:chr_file ~{ioctl read};
+ 

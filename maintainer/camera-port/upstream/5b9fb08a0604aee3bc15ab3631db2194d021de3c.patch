@@ -1,0 +1,182 @@
+From 5b9fb08a0604aee3bc15ab3631db2194d021de3c Mon Sep 17 00:00:00 2001
+From: cjh1249131356 <cjh1249131356@gmail.com>
+Date: Wed, 6 Nov 2024 20:36:28 +0530
+Subject: [PATCH] oplus-fwk: Add missing classes for oplus camera
+
+Co-authored-by: chandu078 <chandudyavanapelli03@gmail.com>
+Signed-off-by: Pranav Vashi <neobuddy89@gmail.com>
+---
+ .../content/OplusFeatureConfigManager.java    | 29 ++++++++++++-------
+ .../oplus/osense/OsenseResEventClient.java    | 22 ++++++++------
+ .../oplus/osense/eventinfo/EventConfig.java   |  8 +++++
+ oplus-fwk/src/com/oplus/uah/UAHResClient.java | 12 ++++++++
+ .../com/oplus/uah/info/UAHEventRequest.java   |  9 ++++++
+ .../com/oplus/uah/info/UAHResourceInfo.java   |  6 ++++
+ .../src/com/oplus/util/OplusFontUtils.java    |  5 ++++
+ 7 files changed, 71 insertions(+), 20 deletions(-)
+ create mode 100644 oplus-fwk/src/com/oplus/osense/eventinfo/EventConfig.java
+ create mode 100644 oplus-fwk/src/com/oplus/uah/UAHResClient.java
+ create mode 100644 oplus-fwk/src/com/oplus/uah/info/UAHEventRequest.java
+ create mode 100644 oplus-fwk/src/com/oplus/uah/info/UAHResourceInfo.java
+ create mode 100644 oplus-fwk/src/com/oplus/util/OplusFontUtils.java
+
+diff --git a/oplus-fwk/src/com/oplus/content/OplusFeatureConfigManager.java b/oplus-fwk/src/com/oplus/content/OplusFeatureConfigManager.java
+index 047efdbe..8580fda9 100644
+--- a/oplus-fwk/src/com/oplus/content/OplusFeatureConfigManager.java
++++ b/oplus-fwk/src/com/oplus/content/OplusFeatureConfigManager.java
+@@ -1,29 +1,36 @@
+-/*
+- * Copyright (C) 2024 The LineageOS Project
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+ package com.oplus.content;
+ 
+-import android.os.RemoteException;
++import android.os.SystemProperties;
+ import android.text.TextUtils;
+ 
+ import java.util.List;
+ 
+ public class OplusFeatureConfigManager {
+-    public static OplusFeatureConfigManager sInstance = null;
++
++    public static OplusFeatureConfigManager sOplusFeatureConfigManager = null;
+ 
+     public static OplusFeatureConfigManager getInstance() {
+-        if (sInstance == null) {
+-            sInstance = new OplusFeatureConfigManager();
++        if (sOplusFeatureConfigManager == null) {
++            sOplusFeatureConfigManager = new OplusFeatureConfigManager();
+         }
+-        return sInstance;
++        return sOplusFeatureConfigManager;
+     }
+ 
+-    public boolean hasFeature(String featureName) {
++    public boolean hasFeature(String name) {
++        if ("oplus.software.vibrator_lmvibrator".equals(name)) {
++            // OnePlus 7/8 series use old OnePlus base camera. Don't let this feature break haptic feedback.
++            if (useOnePlusBaseCamera()) {
++                return false;
++            }
++            return true;
++        }
+         return false;
+     }
+ 
++    private static boolean useOnePlusBaseCamera() {
++        return !TextUtils.isEmpty(SystemProperties.get("ro.oplus.version.base"));
++    }
++
+     public interface OnFeatureObserver {
+         default void onFeatureUpdate(List<String> features) {}
+     }
+diff --git a/oplus-fwk/src/com/oplus/osense/OsenseResEventClient.java b/oplus-fwk/src/com/oplus/osense/OsenseResEventClient.java
+index 27da7656..735c9e80 100644
+--- a/oplus-fwk/src/com/oplus/osense/OsenseResEventClient.java
++++ b/oplus-fwk/src/com/oplus/osense/OsenseResEventClient.java
+@@ -1,20 +1,24 @@
+ package com.oplus.osense;
+ 
+-public class OsenseResEventClient {
++import com.oplus.osense.eventinfo.EventConfig;
++import com.oplus.osense.eventinfo.OsenseEventCallback;
+ 
+-    private static volatile OsenseResEventClient sInstance;
++public class OsenseResEventClient {
+ 
+-    private OsenseResEventClient() {
+-    }
++    private static OsenseResEventClient sInstance;
+ 
+     public static OsenseResEventClient getInstance() {
+         if (sInstance == null) {
+-            synchronized (OsenseResEventClient.class) {
+-                if (sInstance == null) {
+-                    sInstance = new OsenseResEventClient();
+-                }
+-            }
++            sInstance = new OsenseResEventClient();
+         }
+         return sInstance;
+     }
++
++    public int registerEventCallback(OsenseEventCallback callback, EventConfig eventConfig) {
++        return 0;
++    }
++
++    public int unregisterEventCallback(OsenseEventCallback callback, EventConfig eventConfig) {
++        return 0;
++    }
+ }
+diff --git a/oplus-fwk/src/com/oplus/osense/eventinfo/EventConfig.java b/oplus-fwk/src/com/oplus/osense/eventinfo/EventConfig.java
+new file mode 100644
+index 00000000..731e28fe
+--- /dev/null
++++ b/oplus-fwk/src/com/oplus/osense/eventinfo/EventConfig.java
+@@ -0,0 +1,8 @@
++package com.oplus.osense.eventinfo;
++
++import java.util.HashSet;
++
++public class EventConfig {
++
++    public EventConfig(HashSet<Integer> events) {}
++}
+diff --git a/oplus-fwk/src/com/oplus/uah/UAHResClient.java b/oplus-fwk/src/com/oplus/uah/UAHResClient.java
+new file mode 100644
+index 00000000..09aad910
+--- /dev/null
++++ b/oplus-fwk/src/com/oplus/uah/UAHResClient.java
+@@ -0,0 +1,12 @@
++package com.oplus.uah;
++
++public class UAHResClient {
++
++    private UAHResClient(Class cls) {}
++
++    public static UAHResClient get(Class cls) {
++        return new UAHResClient(cls);
++    }
++
++    public void release(int handle) {}
++}
+diff --git a/oplus-fwk/src/com/oplus/uah/info/UAHEventRequest.java b/oplus-fwk/src/com/oplus/uah/info/UAHEventRequest.java
+new file mode 100644
+index 00000000..824f15d4
+--- /dev/null
++++ b/oplus-fwk/src/com/oplus/uah/info/UAHEventRequest.java
+@@ -0,0 +1,9 @@
++package com.oplus.uah.info;
++
++import java.util.ArrayList;
++
++public class UAHEventRequest {
++
++    public UAHEventRequest(int eventId, String sceneName, int timeout,
++            ArrayList<UAHResourceInfo> list) {}
++}
+diff --git a/oplus-fwk/src/com/oplus/uah/info/UAHResourceInfo.java b/oplus-fwk/src/com/oplus/uah/info/UAHResourceInfo.java
+new file mode 100644
+index 00000000..4730cead
+--- /dev/null
++++ b/oplus-fwk/src/com/oplus/uah/info/UAHResourceInfo.java
+@@ -0,0 +1,6 @@
++package com.oplus.uah.info;
++
++public class UAHResourceInfo {
++
++    public UAHResourceInfo(int resId, String resValue) {}
++}
+diff --git a/oplus-fwk/src/com/oplus/util/OplusFontUtils.java b/oplus-fwk/src/com/oplus/util/OplusFontUtils.java
+new file mode 100644
+index 00000000..7e3fd63c
+--- /dev/null
++++ b/oplus-fwk/src/com/oplus/util/OplusFontUtils.java
+@@ -0,0 +1,5 @@
++package com.oplus.util;
++
++public class OplusFontUtils {
++    public static boolean isFlipFontUsed = false;
++}

@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+# Verified SHA-256 file checksums in the camera baseline, not credentials.
+[[allowlists]]
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = [
+    '^8426acb7b920ec77ba1f6e5e6f24531153cd47958c8c22e97ea0ad435e023c71$',
+    '^fd0a685383b6a000c9d8e7625755a62d220f34ec024df1106a3a57dbbf5eccc6$',
+]

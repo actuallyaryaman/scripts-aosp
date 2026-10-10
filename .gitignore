@@ -1,0 +1,20 @@
+# Private, local-only material. Never publish diagnostics or historical helpers.
+/diagnostics/
+/archive/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.telegram-*
+.local-build/
+build-logs/
+*.log
+*.zip
+*.pem
+*.key
+*.p12
+*.jks
+credentials
+id_rsa
+id_ed25519

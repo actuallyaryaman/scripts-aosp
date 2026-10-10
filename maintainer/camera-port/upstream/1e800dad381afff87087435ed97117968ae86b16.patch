@@ -1,0 +1,393 @@
+From 1e800dad381afff87087435ed97117968ae86b16 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Wed, 17 Jun 2026 21:38:08 +0100
+Subject: [PATCH] sepolicy: migrate oplus camera sepolicy to
+ vendor/oplus/camera
+
+Change-Id: I88ecab6736f1dc5886a5fb0de209088331a4b643
+---
+ sepolicy/qti/private/property_contexts        | 11 +---
+ sepolicy/qti/public/attributes                |  2 -
+ sepolicy/qti/vendor/device.te                 |  3 +-
+ sepolicy/qti/vendor/file.te                   |  7 +--
+ sepolicy/qti/vendor/file_contexts             | 11 +---
+ sepolicy/qti/vendor/genfs_contexts            |  7 ---
+ sepolicy/qti/vendor/hal_camera_default.te     | 53 -------------------
+ .../vendor/hal_oplus_cammidasservice_aidl.te  | 14 -----
+ sepolicy/qti/vendor/hwservice.te              |  4 +-
+ sepolicy/qti/vendor/hwservice_contexts        |  7 +--
+ sepolicy/qti/vendor/property_contexts         |  7 ---
+ sepolicy/qti/vendor/service.te                |  4 --
+ sepolicy/qti/vendor/service_contexts          |  7 ---
+ .../vendor/vendor_hal_cameraMDM_default.te    | 20 -------
+ sepolicy/qti/vendor/vendor_init.te            |  1 -
+ sepolicy/qti/vendor/vendor_qti_init_shell.te  |  1 -
+ sepolicy/qti/vendor/vendor_sensors.te         |  1 -
+ sepolicy/qti/vendor/vl53l1_daemon_main.te     |  1 -
+ 18 files changed, 6 insertions(+), 155 deletions(-)
+ delete mode 100644 sepolicy/qti/vendor/hal_camera_default.te
+ delete mode 100644 sepolicy/qti/vendor/hal_oplus_cammidasservice_aidl.te
+ delete mode 100644 sepolicy/qti/vendor/vendor_hal_cameraMDM_default.te
+
+diff --git a/sepolicy/qti/private/property_contexts b/sepolicy/qti/private/property_contexts
+index 1c84d569..dbb998a3 100644
+--- a/sepolicy/qti/private/property_contexts
++++ b/sepolicy/qti/private/property_contexts
+@@ -13,15 +13,7 @@ persist.sys.oplus.autotest.    u:object_r:exported_system_prop:s0
+ persist.bluetooth.a2dp_aac_abr.enable   u:object_r:exported_bluetooth_prop:s0
+ persist.sys.bt.a2dp.pendingtime    u:object_r:exported_system_prop:s0
+ 
+-# Camera
+-cam.algo.                        u:object_r:exported_system_prop:s0
+-com.oplus.camera.                u:object_r:exported_system_prop:s0
+-oplus.camera.                    u:object_r:exported_system_prop:s0
+-oppo.camera.                     u:object_r:exported_system_prop:s0
+-persist.camera.                  u:object_r:exported_system_prop:s0
+-persist.sys.camera.lao.enable    u:object_r:exported_system_prop:s0
+-ro.camera.res.                   u:object_r:exported_system_prop:s0
+-ro.camera.req.                   u:object_r:exported_system_prop:s0
++# Misc
+ ro.hardware.chipname             u:object_r:exported_system_prop:s0
+ ro.oppo.market.                  u:object_r:exported_system_prop:s0
+ 
+@@ -51,7 +43,6 @@ persist.sys.oplus.gps.    u:object_r:exported_system_prop:s0
+ # Logging
+ aec.custom.debug.               u:object_r:exported_system_prop:s0
+ persist.sys.assert.panic        u:object_r:exported_system_prop:s0
+-persist.sys.camera.log.scene    u:object_r:exported_system_prop:s0
+ persist.sys.debuglog.config     u:object_r:exported_system_prop:s0
+ persist.sys.log.ae              u:object_r:exported_system_prop:s0
+ persist.sys.log.af              u:object_r:exported_system_prop:s0
+diff --git a/sepolicy/qti/public/attributes b/sepolicy/qti/public/attributes
+index 909fe913..242213c6 100644
+--- a/sepolicy/qti/public/attributes
++++ b/sepolicy/qti/public/attributes
+@@ -1,6 +1,4 @@
+-vendor_hal_attribute(cameraMDM)
+ vendor_hal_attribute(fingerprintpay)
+-vendor_hal_attribute(oplus_cammidasservice)
+ vendor_hal_attribute(oplus_charger)
+ vendor_hal_attribute(oplus_commcenter)
+ vendor_hal_attribute(oplus_commondcs)
+diff --git a/sepolicy/qti/vendor/device.te b/sepolicy/qti/vendor/device.te
+index 25040219..63ef8214 100644
+--- a/sepolicy/qti/vendor/device.te
++++ b/sepolicy/qti/vendor/device.te
+@@ -1,8 +1,7 @@
+ # Audio Amplifier
+ type oplus_awsmartpa_device, dev_type;
+ 
+-# Camera
+-type vendor_camera_turbo_device, dev_type;
++# Explorer
+ type vendor_explorer_device, dev_type;
+ 
+ # Charging
+diff --git a/sepolicy/qti/vendor/file.te b/sepolicy/qti/vendor/file.te
+index e66b47e0..0159e71d 100644
+--- a/sepolicy/qti/vendor/file.te
++++ b/sepolicy/qti/vendor/file.te
+@@ -1,12 +1,9 @@
+ # Alert Slider
+ type vendor_proc_tri_state_key, fs_type, proc_type;
+ 
+-# Camera
+-type vendor_camera_update_data_file, file_type, data_file_type;
++# Explorer
+ type vendor_explorer_data_file, file_type, data_file_type;
+-type vendor_persist_camera_file, file_type;
+ type vendor_persist_explorer_file, file_type;
+-type vendor_proc_camera, fs_type, proc_type;
+ 
+ # Charging
+ type vendor_proc_charger, fs_type, proc_type;
+@@ -53,7 +50,6 @@ type vendor_proc_oplus_pogo_keyboard, fs_type, proc_type;
+ type oplus_reserve_connectivity_felicalock, file_type;
+ type oplus_reserve_connectivity_file, file_type;
+ type oplus_reserve_file, file_type, oplus_reserve_file_type;
+-type oplus_reserve_media_camera, file_type;
+ type oplus_reserve_media_dropbox, file_type;
+ type oplus_reserve_media_engineermode, file_type;
+ type oplus_reserve_media_file, file_type;
+@@ -64,7 +60,6 @@ type oplus_reserve_system_file, file_type;
+ type oplus_reserve_system_flag, file_type;
+ type oplus_reserve_system_ssv, file_type;
+ type oppo_reserve_file, file_type, oplus_reserve_file_type;
+-type oppo_reserve_media_camera, file_type;
+ type oppo_reserve_media_coloros, file_type;
+ type oppo_reserve_media_dropbox, file_type;
+ type oppo_reserve_media_file, file_type;
+diff --git a/sepolicy/qti/vendor/file_contexts b/sepolicy/qti/vendor/file_contexts
+index cc255c32..61be471c 100644
+--- a/sepolicy/qti/vendor/file_contexts
++++ b/sepolicy/qti/vendor/file_contexts
+@@ -4,18 +4,10 @@
+ # Audio Amplifier
+ /dev/aw882xx_smartpa    u:object_r:oplus_awsmartpa_device:s0
+ 
+-# Camera
+-/data/vendor/camera_update(/.*)?                                                u:object_r:vendor_camera_update_data_file:s0
++# Explorer
+ /data/vendor/explorer(/.*)?                                                     u:object_r:vendor_explorer_data_file:s0
+-/dev/camera_extension_monitor                                                   u:object_r:vendor_camera_turbo_device:s0
+ /dev/explorer_preisp                                                            u:object_r:vendor_explorer_device:s0
+-/mnt/vendor/persist/camera(/.*)?                                                u:object_r:vendor_persist_camera_file:s0
+-/mnt/vendor/persist/dual_camera_calibration(/.*)?                               u:object_r:vendor_persist_camera_file:s0
+ /mnt/vendor/persist/explorer(/.*)?                                              u:object_r:vendor_persist_explorer_file:s0
+-/(odm|vendor/odm)/bin/hw/vendor\.oplus\.hardware\.cammidasservice-V1-service    u:object_r:hal_oplus_cammidasservice_aidl_exec:s0
+-/vendor/bin/hw/vendor\.oplus\.hardware\.cameraMDM@1\.0-service                  u:object_r:vendor_hal_cameraMDM_default_exec:s0
+-/vendor/bin/hw/vendor\.oplus\.hardware\.cameraMDM@2\.0-service                  u:object_r:vendor_hal_cameraMDM_default_exec:s0
+-/vendor/lib64/libipebpsstriping(170)?\.so                                       u:object_r:same_process_hal_file:s0
+ 
+ # Charging
+ /dev/oplus_chg                                                               u:object_r:oplus_charger_device:s0
+@@ -153,7 +145,6 @@
+ /mnt/vendor/oplusreserve/connectivity/felicalock(/.*)?              u:object_r:oplus_reserve_connectivity_felicalock:s0
+ /mnt/vendor/oplusreserve/connectivity/nfclock(/.*)?                 u:object_r:oplus_reserve_connectivity_felicalock:s0
+ /mnt/vendor/oplusreserve/media(/.*)?                                u:object_r:oplus_reserve_media_file:s0
+-/mnt/vendor/oplusreserve/media/Camera(/.*)?                         u:object_r:oplus_reserve_media_camera:s0
+ /mnt/vendor/oplusreserve/media/ColorOS(/.*)?                        u:object_r:oppo_reserve_media_coloros:s0
+ /mnt/vendor/oplusreserve/media/dropbox(/.*)?                        u:object_r:oplus_reserve_media_dropbox:s0
+ /mnt/vendor/oplusreserve/media/engineermode(/.*)?                   u:object_r:oplus_reserve_media_engineermode:s0
+diff --git a/sepolicy/qti/vendor/genfs_contexts b/sepolicy/qti/vendor/genfs_contexts
+index 03ac9652..f583bf2f 100644
+--- a/sepolicy/qti/vendor/genfs_contexts
++++ b/sepolicy/qti/vendor/genfs_contexts
+@@ -20,13 +20,6 @@ genfscon sysfs /devices/platform/soc/soc:oplus,mms_wired/oplus_mms        u:obje
+ genfscon sysfs /devices/platform/soc/soc:qcom,pmic_glink/soc:qcom,pmic_glink:qcom,battery_charger/soc:qcom,pmic_glink:qcom,battery_charger:oplus,pm8350_charger:oplus,mms_wired/oplus_mms    u:object_r:vendor_sysfs_usb_supply:s0
+ genfscon sysfs /devices/virtual/oplus_chg                                 u:object_r:vendor_sysfs_usb_supply:s0
+ 
+-# Camera
+-genfscon proc /boost_pool/camera_pages           u:object_r:vendor_proc_camera:s0
+-genfscon proc /boost_pool/camera_pid             u:object_r:vendor_proc_camera:s0
+-genfscon proc /oplus_cl/cl_aware_camera          u:object_r:vendor_proc_camera:s0
+-genfscon proc /oplus_cl/cl_aware_camera_usage    u:object_r:vendor_proc_camera:s0
+-genfscon proc /qcom_flash                        u:object_r:vendor_proc_camera:s0
+-
+ # Display
+ genfscon proc /devinfo/lcd              u:object_r:vendor_proc_display:s0
+ genfscon proc /devinfo/tp               u:object_r:vendor_proc_display:s0
+diff --git a/sepolicy/qti/vendor/hal_camera_default.te b/sepolicy/qti/vendor/hal_camera_default.te
+deleted file mode 100644
+index 7312e591..00000000
+--- a/sepolicy/qti/vendor/hal_camera_default.te
++++ /dev/null
+@@ -1,53 +0,0 @@
+-hal_attribute_hwservice(hal_camera, vendor_hal_camera_extension_hwservice)
+-hal_attribute_hwservice(hal_camera, vendor_hal_explorer_hwservice)
+-
+-hal_client_domain(hal_camera_default, vendor_hal_cameraMDM)
+-hal_client_domain(hal_camera_default, vendor_hal_oplus_cammidasservice)
+-hal_client_domain(hal_camera_default, vendor_hal_oplus_charger)
+-hal_client_domain(hal_camera_default, vendor_hal_oplus_commondcs)
+-hal_client_domain(hal_camera_default, vendor_hal_oplus_osense)
+-hal_client_domain(hal_camera_default, vendor_hal_oplus_performance)
+-hal_client_domain(hal_camera_default, vendor_hal_oplus_urcc)
+-hal_client_domain(hal_camera_default, vendor_hal_qspmhal)
+-
+-add_service(hal_camera_default, hal_oplus_aon_aidl_service)
+-
+-allow hal_camera_default self:capability ipc_lock;
+-allow hal_camera_default self:netlink_generic_socket create_socket_perms_no_ioctl;
+-allow hal_camera_default self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+-
+-allow hal_camera_default system_server:binder call;
+-
+-allow hal_camera_default hal_oplus_olc_aidl_service:service_manager find;
+-allow hal_camera_default osense_service:service_manager find;
+-
+-allow hal_camera_default vendor_hal_orms_hwservice:hwservice_manager find;
+-allow hal_camera_default vendor_hal_osense_hwservice:hwservice_manager find;
+-
+-allow hal_camera_default input_device:chr_file rw_file_perms;
+-allow hal_camera_default vendor_camera_turbo_device:chr_file rw_file_perms;
+-allow hal_camera_default vendor_explorer_device:chr_file rw_file_perms;
+-allow hal_camera_default vendor_tof_device:chr_file rw_file_perms;
+-
+-allow hal_camera_default mnt_vendor_file:dir search;
+-
+-allow hal_camera_default proc_meminfo:file r_file_perms;
+-
+-allow hal_camera_default vendor_camera_update_data_file:dir rw_dir_perms;
+-allow hal_camera_default vendor_camera_update_data_file:file create_file_perms;
+-allow hal_camera_default vendor_explorer_data_file:dir rw_dir_perms;
+-allow hal_camera_default vendor_explorer_data_file:file create_file_perms;
+-
+-allow hal_camera_default vendor_persist_camera_file:dir w_dir_perms;
+-allow hal_camera_default vendor_persist_camera_file:file create_file_perms;
+-allow hal_camera_default vendor_persist_explorer_file:dir w_dir_perms;
+-allow hal_camera_default vendor_persist_explorer_file:file create_file_perms;
+-
+-r_dir_file(hal_camera_default, input_device)
+-r_dir_file(hal_camera_default, proc_version)
+-r_dir_file(hal_camera_default, vendor_proc_oplus_version)
+-r_dir_file(hal_camera_default, vendor_sysfs_usb_supply)
+-rw_dir_file(hal_camera_default, vendor_proc_camera)
+-rw_dir_file(hal_camera_default, vendor_sysfs_tof)
+-
+-set_prop(hal_camera_default, vendor_camera_prop)
+diff --git a/sepolicy/qti/vendor/hal_oplus_cammidasservice_aidl.te b/sepolicy/qti/vendor/hal_oplus_cammidasservice_aidl.te
+deleted file mode 100644
+index c1e15b53..00000000
+--- a/sepolicy/qti/vendor/hal_oplus_cammidasservice_aidl.te
++++ /dev/null
+@@ -1,14 +0,0 @@
+-type hal_oplus_cammidasservice_aidl, domain;
+-binder_use(hal_oplus_cammidasservice_aidl)
+-
+-allow hal_oplus_cammidasservice_aidl fwk_stats_service:service_manager find;
+-binder_call(hal_oplus_cammidasservice_aidl, system_server)
+-
+-hal_server_domain(hal_oplus_cammidasservice_aidl, vendor_hal_oplus_cammidasservice)
+-
+-type hal_oplus_cammidasservice_aidl_exec, exec_type, vendor_file_type, file_type;
+-init_daemon_domain(hal_oplus_cammidasservice_aidl)
+-
+-binder_call(vendor_hal_oplus_cammidasservice_client, vendor_hal_oplus_cammidasservice_server)
+-
+-hal_attribute_service(vendor_hal_oplus_cammidasservice, hal_oplus_cammidasservice_aidl_service)
+diff --git a/sepolicy/qti/vendor/hwservice.te b/sepolicy/qti/vendor/hwservice.te
+index 9c1725c6..7db301f1 100644
+--- a/sepolicy/qti/vendor/hwservice.te
++++ b/sepolicy/qti/vendor/hwservice.te
+@@ -1,6 +1,4 @@
+-# Camera
+-type vendor_hal_camera_extension_hwservice, hwservice_manager_type, protected_hwservice;
+-type vendor_hal_cameraMDM_hwservice, hwservice_manager_type, protected_hwservice;
++# Explorer
+ type vendor_hal_explorer_hwservice, hwservice_manager_type, protected_hwservice;
+ 
+ # CommonDcs
+diff --git a/sepolicy/qti/vendor/hwservice_contexts b/sepolicy/qti/vendor/hwservice_contexts
+index d5046f67..7290aaf4 100644
+--- a/sepolicy/qti/vendor/hwservice_contexts
++++ b/sepolicy/qti/vendor/hwservice_contexts
+@@ -1,12 +1,7 @@
+ # Audio
+ vendor.oplus.hardware.bluetooth_audio_extend::IBluetoothAudioProvidersFactory    u:object_r:hal_audio_hwservice:s0
+ 
+-# Camera
+-vendor.oplus.hardware.cameraextension::ICameraExtensionService         u:object_r:vendor_hal_camera_extension_hwservice:s0
+-vendor.oplus.hardware.cameraMDM::IOPlusCameraMDM                       u:object_r:vendor_hal_cameraMDM_hwservice:s0
+-vendor.oplus.hardware.cammidasservice::IMIDASService                   u:object_r:hal_camera_hwservice:s0
+-vendor.oplus.hardware.sendextcamcmd::ISendExtCamCmdService             u:object_r:hal_camera_hwservice:s0
+-vendor.qti.hardware.camera.cameraextension::ICameraExtensionService    u:object_r:vendor_hal_camera_extension_hwservice:s0
++# Explorer
+ vendor.zeku.hardware.explorer::IMmsProvider                            u:object_r:vendor_hal_explorer_hwservice:s0
+ 
+ # Charger
+diff --git a/sepolicy/qti/vendor/property_contexts b/sepolicy/qti/vendor/property_contexts
+index bd4f174d..948c87c6 100644
+--- a/sepolicy/qti/vendor/property_contexts
++++ b/sepolicy/qti/vendor/property_contexts
+@@ -2,13 +2,6 @@
+ ro.vendor.oplus.audiodriver.operator    u:object_r:vendor_audio_debug_prop:s0
+ ro.vendor.oplus.regionmark              u:object_r:vendor_audio_debug_prop:s0
+ 
+-# Camera
+-ro.vendor.camera.res.          u:object_r:vendor_camera_prop:s0
+-ro.vendor.oplus.camera.        u:object_r:vendor_camera_prop:s0
+-vendor.camera.vm.parameters    u:object_r:vendor_camera_prop:s0
+-vendor.oplus.camera.           u:object_r:vendor_camera_prop:s0
+-vendor.oppo.camera.            u:object_r:vendor_camera_prop:s0
+-
+ # Display
+ vendor.dps.dump.composerpid    u:object_r:vendor_display_prop:s0
+ 
+diff --git a/sepolicy/qti/vendor/service.te b/sepolicy/qti/vendor/service.te
+index ab5ef40d..70c2ffe3 100644
+--- a/sepolicy/qti/vendor/service.te
++++ b/sepolicy/qti/vendor/service.te
+@@ -1,7 +1,3 @@
+-# Camera
+-type hal_oplus_aon_aidl_service, hal_service_type, service_manager_type;
+-type hal_oplus_cammidasservice_aidl_service, hal_service_type, service_manager_type;
+-
+ # Charging
+ type hal_oplus_charger_aidl_service, hal_service_type, service_manager_type;
+ 
+diff --git a/sepolicy/qti/vendor/service_contexts b/sepolicy/qti/vendor/service_contexts
+index 0db37412..cca39d05 100644
+--- a/sepolicy/qti/vendor/service_contexts
++++ b/sepolicy/qti/vendor/service_contexts
+@@ -1,10 +1,3 @@
+-# Camera
+-vendor.oplus.hardware.camera.aon.IAONService/default                     u:object_r:hal_oplus_aon_aidl_service:s0
+-vendor.oplus.hardware.camera_rfi.ICameraRfiService/default               u:object_r:hal_camera_service:s0
+-vendor.oplus.hardware.cameraextension.ICameraExtensionService/default    u:object_r:hal_camera_service:s0
+-vendor.oplus.hardware.cammidasservice.IMIDASService/default              u:object_r:hal_oplus_cammidasservice_aidl_service:s0
+-vendor.oplus.hardware.sendextcamcmd.ISendExtCamCmdService/default        u:object_r:hal_camera_service:s0
+-
+ # Charging
+ vendor.oplus.hardware.charger.ICharger/default    u:object_r:hal_oplus_charger_aidl_service:s0
+ 
+diff --git a/sepolicy/qti/vendor/vendor_hal_cameraMDM_default.te b/sepolicy/qti/vendor/vendor_hal_cameraMDM_default.te
+deleted file mode 100644
+index 18af02e7..00000000
+--- a/sepolicy/qti/vendor/vendor_hal_cameraMDM_default.te
++++ /dev/null
+@@ -1,20 +0,0 @@
+-type vendor_hal_cameraMDM_default, domain;
+-hal_server_domain(vendor_hal_cameraMDM_default, vendor_hal_cameraMDM)
+-
+-type vendor_hal_cameraMDM_default_exec, exec_type, vendor_file_type, file_type;
+-init_daemon_domain(vendor_hal_cameraMDM_default)
+-
+-binder_call(vendor_hal_cameraMDM_client, vendor_hal_cameraMDM_server)
+-binder_call(vendor_hal_cameraMDM_server, vendor_hal_cameraMDM_client)
+-
+-hal_attribute_hwservice(vendor_hal_cameraMDM, vendor_hal_cameraMDM_hwservice)
+-
+-allow vendor_hal_cameraMDM_default vendor_hal_perf_hwservice:hwservice_manager find;
+-
+-allow vendor_hal_cameraMDM_default tee_device:chr_file rw_file_perms;
+-allow vendor_hal_cameraMDM_default ion_device:chr_file rw_file_perms;
+-
+-allow vendor_hal_cameraMDM_default vendor_camera_data_file:dir create_dir_perms;
+-allow vendor_hal_cameraMDM_default vendor_camera_data_file:file create_file_perms;
+-
+-r_dir_file(vendor_hal_cameraMDM_default, firmware_file)
+diff --git a/sepolicy/qti/vendor/vendor_init.te b/sepolicy/qti/vendor/vendor_init.te
+index 0734e982..0554f495 100644
+--- a/sepolicy/qti/vendor/vendor_init.te
++++ b/sepolicy/qti/vendor/vendor_init.te
+@@ -2,7 +2,6 @@ allow vendor_init proc_sched:file w_file_perms;
+ allow vendor_init vendor_proc_display:file w_file_perms;
+ 
+ set_prop(vendor_init, system_oplus_project_prop)
+-set_prop(vendor_init, vendor_camera_prop)
+ set_prop(vendor_init, vendor_fingerprint_prop)
+ set_prop(vendor_init, vendor_oplus_touch_prop)
+ set_prop(vendor_init, vendor_thermal_engine_prop)
+diff --git a/sepolicy/qti/vendor/vendor_qti_init_shell.te b/sepolicy/qti/vendor/vendor_qti_init_shell.te
+index 2c5c088d..e7ecce7b 100644
+--- a/sepolicy/qti/vendor/vendor_qti_init_shell.te
++++ b/sepolicy/qti/vendor/vendor_qti_init_shell.te
+@@ -2,7 +2,6 @@ allow vendor_qti_init_shell proc_cmdline:file r_file_perms;
+ 
+ allow vendor_qti_init_shell proc_page_cluster:file create_file_perms;
+ allow vendor_qti_init_shell vendor_olog_file:file create_file_perms;
+-allow vendor_qti_init_shell vendor_proc_camera:file create_file_perms;
+ 
+ allow vendor_qti_init_shell vendor_olog_file:dir rw_dir_perms;
+ allow vendor_qti_init_shell vendor_qmcs_file:dir r_dir_perms;
+diff --git a/sepolicy/qti/vendor/vendor_sensors.te b/sepolicy/qti/vendor/vendor_sensors.te
+index f2571a24..8bb4dfbc 100644
+--- a/sepolicy/qti/vendor/vendor_sensors.te
++++ b/sepolicy/qti/vendor/vendor_sensors.te
+@@ -1,4 +1,3 @@
+-rw_dir_file(vendor_sensors, vendor_persist_camera_file)
+ rw_dir_file(vendor_sensors, vendor_persist_engineer_file)
+ rw_dir_file(vendor_sensors, vendor_proc_eng_cali_file)
+ rw_dir_file(vendor_sensors, vendor_proc_oplus_version)
+diff --git a/sepolicy/qti/vendor/vl53l1_daemon_main.te b/sepolicy/qti/vendor/vl53l1_daemon_main.te
+index d4358a30..f0ae8870 100644
+--- a/sepolicy/qti/vendor/vl53l1_daemon_main.te
++++ b/sepolicy/qti/vendor/vl53l1_daemon_main.te
+@@ -11,6 +11,5 @@ allow vl53l1_daemon_main self:{
+ 
+ allow vl53l1_daemon_main self:netlink_iscsi_socket { read write create bind };
+ 
+-r_dir_file(vl53l1_daemon_main, vendor_persist_camera_file)
+ r_dir_file(vl53l1_daemon_main, vendor_sysfs_tof)
+ rw_dir_file(vl53l1_daemon_main, mnt_vendor_file)

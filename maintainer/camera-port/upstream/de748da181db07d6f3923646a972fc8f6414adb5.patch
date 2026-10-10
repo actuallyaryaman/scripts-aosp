@@ -1,0 +1,156 @@
+From de748da181db07d6f3923646a972fc8f6414adb5 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Fri, 19 Jun 2026 18:03:26 +0100
+Subject: [PATCH] camera: fix Google-Lens->back provider deadlock on shared
+ rear sensor
+
+Camera IDs 0 and 2 share the rear main sensor. The HAL declares an
+asymmetric conflict (0 conflicts with 2, but not 2 with 0), so when the
+foreground Oplus app reopens camera 2 on a BACK gesture while Google
+Lens's still-live camera-0 (logical-4 RealTimeMCX) session is streaming,
+AOSP never evicts camera 0. The provider is then asked to bring up camera
+2 concurrently, and the eviction/detach path issues a HAL flush() on the
+in-flight MCX session. ChiMulticameraBase::ExecuteFlush takes the usecase
+lock then waits for in-flight results to drain, while those result
+callbacks need the same lock -> AB/BA lock-inversion. ~10s later the CamX
+timer watchdog SIGABRTs the whole provider and the camera app self-kills.
+
+Two coordinated fixes:
+
+CameraService::handleEvictionsLocked - force the missing eviction
+direction (evict the 0<->2 peer when one connects) so camera 0 is fully
+closed before camera 2's HAL session opens, removing the concurrency that
+triggers the deadlock. This MUST run after the isPrivilegedClient() clear,
+since com.oplus.camera is in persist.vendor.camera.privapp.list and the
+clear would otherwise wipe the forced eviction.
+
+CameraDeviceClient::detachDevice - for non-Oplus (MCX) clients, mirror the
+orderly HOME-dismissal teardown: clearStreamingRequest() + waitUntilDrained()
+and DROP the HAL flush() that causes the inversion. The Oplus app HAL still
+needs the legacy flush()+drain workaround, so keep it for com.oplus.camera.
+
+With eviction guaranteeing no concurrent open, the evicted Lens session
+drains cleanly and the provider survives. Verified live: BACK from Lens
+now force-evicts camera 0 and the camera UI is ready with no provider
+SIGABRT / RealTimeMCX flush timeout. Keeps the dual-camera (MCX) path
+working rather than disabling it.
+---
+ .../camera/libcameraservice/CameraService.cpp | 51 +++++++++++++++++++
+ .../api2/CameraDeviceClient.cpp               | 41 ++++++++++++---
+ 2 files changed, 86 insertions(+), 6 deletions(-)
+
+diff --git a/services/camera/libcameraservice/CameraService.cpp b/services/camera/libcameraservice/CameraService.cpp
+index 562081cded..b64e5e627b 100644
+--- a/services/camera/libcameraservice/CameraService.cpp
++++ b/services/camera/libcameraservice/CameraService.cpp
+@@ -2132,6 +2132,57 @@ status_t CameraService::handleEvictionsLocked(const std::string& cameraId, int c
+             evicted.clear();
+         }
+ 
++        // --- OPLUS PORT: Force symmetric eviction for cameras sharing physical sensors ---
++        // Camera IDs 0 and 2 share the rear main sensor. The HAL declares
++        // 0 conflicts with 2, but NOT 2 conflicts with 0 (asymmetric).
++        // This causes a provider deadlock when camera 2 opens while camera 0's
++        // (logical-4 RealTimeMCX) session is still live (Google-Lens → back).
++        // Force the missing direction: evict the peer (0<->2) when one connects.
++        //
++        // NOTE: this MUST run AFTER the isPrivilegedClient() clear above —
++        // com.oplus.camera is in persist.vendor.camera.privapp.list, so the clear
++        // wipes the normal evicted set; if we forced the peer before the clear it
++        // would be erased and the concurrent open would deadlock the provider.
++        {
++            std::string conflictPeer;
++            if (cameraId == "2") conflictPeer = "0";
++            else if (cameraId == "0") conflictPeer = "2";
++
++            // [OplusPort][DIAG] Unconditional trace: confirm this block runs and dump the
++            // active-client set at connect time so we can see why the peer is/ isn't found.
++            {
++                std::string activeKeys;
++                for (const auto& k : mActiveClientManager.getAllKeys()) {
++                    activeKeys += k;
++                    activeKeys += " ";
++                }
++                auto peerProbe = conflictPeer.empty() ? nullptr
++                        : mActiveClientManager.get(conflictPeer);
++                ALOGE("[OplusPort][DIAG] handleEvictions cameraId=%s pkg=%s conflictPeer=%s "
++                      "peerFound=%d activeKeys=[ %s] evictedN(after privclear)=%zu",
++                      cameraId.c_str(), packageName.c_str(),
++                      conflictPeer.empty() ? "(none)" : conflictPeer.c_str(),
++                      (peerProbe != nullptr && peerProbe->getValue() != nullptr) ? 1 : 0,
++                      activeKeys.c_str(), evicted.size());
++            }
++
++            if (!conflictPeer.empty()) {
++                auto peerClient = mActiveClientManager.get(conflictPeer);
++                if (peerClient != nullptr && peerClient->getValue() != nullptr) {
++                    if (std::find(evicted.begin(), evicted.end(), peerClient) == evicted.end()) {
++                        ALOGE("[OplusPort] Force-evicting camera %s client %s (PID %" PRId32
++                              ") — asymmetric conflict with camera %s",
++                              conflictPeer.c_str(),
++                              peerClient->getValue()->getPackageName().c_str(),
++                              peerClient->getOwnerId(),
++                              cameraId.c_str());
++                        evicted.push_back(peerClient);
++                    }
++                }
++            }
++        }
++        // -----------------------------------------------------------------------
++
+         // If the incoming client was 'evicted,' higher priority clients have the camera in the
+         // background, so we cannot do evictions
+         if (std::find(evicted.begin(), evicted.end(), clientDescriptor) != evicted.end()) {
+diff --git a/services/camera/libcameraservice/api2/CameraDeviceClient.cpp b/services/camera/libcameraservice/api2/CameraDeviceClient.cpp
+index 5e7364f0f4..b11fc97a05 100644
+--- a/services/camera/libcameraservice/api2/CameraDeviceClient.cpp
++++ b/services/camera/libcameraservice/api2/CameraDeviceClient.cpp
+@@ -2533,13 +2533,42 @@ void CameraDeviceClient::detachDevice() {
+         {
+             int64_t lastFrameNumber;
+             status_t code;
+-            if ((code = mDevice->flush(&lastFrameNumber)) != OK) {
+-                ALOGE("%s: flush failed with code 0x%x", __FUNCTION__, code);
+-            }
+ 
+-            if ((code = mDevice->waitUntilDrained()) != OK) {
+-                ALOGE("%s: waitUntilDrained failed with code 0x%x", __FUNCTION__,
+-                        code);
++            // Teardown path differs for 3rd-party multi-camera (MCX) clients vs the Oplus app.
++            //
++            // The QTI multi-camera HAL (com.qti.chi.override.so ChiMulticameraBase::ExecuteFlush)
++            // takes the usecase lock and then waits for in-flight results to drain, while those
++            // result callbacks (OnProcessCaptureResult / OnProcessPartialCaptureResultCallback)
++            // need the SAME lock to be delivered -> AB/BA lock-inversion. Issuing a HAL flush()
++            // on such a session deadlocks; ~10 s later the CamX timer watchdog SIGABRTs the whole
++            // provider. This is reached when a streaming rear logical-camera client (e.g. Google
++            // Lens) is evicted because the foreground Oplus app reopens the rear camera on BACK.
++            //
++            // For non-Oplus clients we therefore mirror the orderly app-initiated close (the same
++            // path that tears down cleanly when Lens is dismissed via HOME): stop the repeating
++            // request and let the in-flight results drain naturally, and DO NOT issue the HAL
++            // flush(). CameraService eviction guarantees this completes before any conflicting
++            // Oplus rear open begins, so there is no concurrent open to starve the drain and the
++            // MCX session drains instead of deadlocking.
++            //
++            // The Oplus camera HAL still needs the legacy flush() workaround below (it refuses to
++            // disconnect while there are streams in flight), so keep the original behaviour there.
++            std::string pkgName = getPackageName();
++            if (pkgName != "com.oplus.camera") {
++                if ((code = mDevice->clearStreamingRequest(&lastFrameNumber)) != OK) {
++                    ALOGE("%s: clearStreamingRequest failed with code 0x%x", __FUNCTION__, code);
++                }
++                if ((code = mDevice->waitUntilDrained()) != OK) {
++                    ALOGE("%s: waitUntilDrained failed with code 0x%x", __FUNCTION__, code);
++                }
++            } else {
++                if ((code = mDevice->flush(&lastFrameNumber)) != OK) {
++                    ALOGE("%s: flush failed with code 0x%x", __FUNCTION__, code);
++                }
++                if ((code = mDevice->waitUntilDrained()) != OK) {
++                    ALOGE("%s: waitUntilDrained failed with code 0x%x", __FUNCTION__,
++                            code);
++                }
+             }
+         }
+ 

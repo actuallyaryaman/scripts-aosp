@@ -1,0 +1,101 @@
+From 0844be0629475bfc4a91ef26c15c770faf51e496 Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Sun, 5 Jul 2026 19:47:07 +0100
+Subject: [PATCH] oplus-fwk: ViewWrapper.setScroll{X,Y}ForColor write
+ mScrollX/mScrollY directly
+
+The stubs implemented setScroll{X,Y}ForColor by calling the public
+View.setScroll{X,Y}(). But View.setScrollY() -> this.scrollTo(mScrollX, y)
+re-dispatches into the overridden COUINestedScrollView.scrollTo(), which (on a
+"color device") commits its offset via ViewNative.setScrollY() -> back into this
+wrapper -> infinite recursion -> StackOverflowError on every drag frame. Result:
+mScrollY never updated and COUI scroll containers (e.g. the gallery share sheet
+"More" list) could not scroll; logcat spammed
+"ViewNative: java.lang.reflect.InvocationTargetException".
+
+Write the private View.mScrollX/mScrollY field directly by reflection (bootclasspath
+jar, so unrestricted), matching the real ColorOS inner accessor and breaking the
+re-entrancy.
+
+Change-Id: Ic8707a0f9c14947b56243971024047e7fa66f97c
+---
+ .../src/com/color/inner/view/ViewWrapper.java | 27 ++++++++++++++++---
+ .../src/com/oplus/inner/view/ViewWrapper.java | 27 ++++++++++++++++---
+ 2 files changed, 46 insertions(+), 8 deletions(-)
+
+diff --git a/oplus-fwk/src/com/color/inner/view/ViewWrapper.java b/oplus-fwk/src/com/color/inner/view/ViewWrapper.java
+index 79e066e0..ea4bab55 100644
+--- a/oplus-fwk/src/com/color/inner/view/ViewWrapper.java
++++ b/oplus-fwk/src/com/color/inner/view/ViewWrapper.java
+@@ -1,10 +1,29 @@
+ package com.color.inner.view;
+ 
++import android.view.View;
++import java.lang.reflect.Field;
++
+ public class ViewWrapper {
+-    public static void setScrollXForColor(android.view.View view, int scrollX) {
+-        if (view != null) view.setScrollX(scrollX);
++    // COUI scroll containers (COUINestedScrollView/COUIScrollView) commit their scroll
++    // offset through these accessors. They MUST write View.mScrollX/mScrollY directly:
++    // calling the public View.setScrollX/setScrollY re-dispatches to the overridden
++    // scrollTo(), which calls back here -> infinite recursion -> StackOverflowError and
++    // the list never scrolls. This mirrors the real ColorOS "inner" accessor.
++    public static void setScrollXForColor(View view, int scrollX) {
++        setField(view, "mScrollX", scrollX);
++    }
++
++    public static void setScrollYForColor(View view, int scrollY) {
++        setField(view, "mScrollY", scrollY);
+     }
+-    public static void setScrollYForColor(android.view.View view, int scrollY) {
+-        if (view != null) view.setScrollY(scrollY);
++
++    private static void setField(View view, String name, int value) {
++        if (view == null) return;
++        try {
++            Field f = View.class.getDeclaredField(name);
++            f.setAccessible(true);
++            f.setInt(view, value);
++        } catch (ReflectiveOperationException ignored) {
++        }
+     }
+ }
+diff --git a/oplus-fwk/src/com/oplus/inner/view/ViewWrapper.java b/oplus-fwk/src/com/oplus/inner/view/ViewWrapper.java
+index ae7b67dc..03b3397e 100644
+--- a/oplus-fwk/src/com/oplus/inner/view/ViewWrapper.java
++++ b/oplus-fwk/src/com/oplus/inner/view/ViewWrapper.java
+@@ -1,10 +1,29 @@
+ package com.oplus.inner.view;
+ 
++import android.view.View;
++import java.lang.reflect.Field;
++
+ public class ViewWrapper {
+-    public static void setScrollXForColor(android.view.View view, int scrollX) {
+-        if (view != null) view.setScrollX(scrollX);
++    // COUI scroll containers (COUINestedScrollView/COUIScrollView) commit their scroll
++    // offset through these accessors. They MUST write View.mScrollX/mScrollY directly:
++    // calling the public View.setScrollX/setScrollY re-dispatches to the overridden
++    // scrollTo(), which calls back here -> infinite recursion -> StackOverflowError and
++    // the list never scrolls. This mirrors the real ColorOS "inner" accessor.
++    public static void setScrollXForColor(View view, int scrollX) {
++        setField(view, "mScrollX", scrollX);
++    }
++
++    public static void setScrollYForColor(View view, int scrollY) {
++        setField(view, "mScrollY", scrollY);
+     }
+-    public static void setScrollYForColor(android.view.View view, int scrollY) {
+-        if (view != null) view.setScrollY(scrollY);
++
++    private static void setField(View view, String name, int value) {
++        if (view == null) return;
++        try {
++            Field f = View.class.getDeclaredField(name);
++            f.setAccessible(true);
++            f.setInt(view, value);
++        } catch (ReflectiveOperationException ignored) {
++        }
+     }
+ }

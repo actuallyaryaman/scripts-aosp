@@ -1,0 +1,39 @@
+From 077683f1991189dfa3c8c8e4a6e6839d8150496c Mon Sep 17 00:00:00 2001
+From: elpaablo <donopwhile1@gmail.com>
+Date: Fri, 19 Jun 2026 10:33:08 +0100
+Subject: [PATCH] camera: Relax monotonic timestamp guard for still captures
+
+Oplus still-capture brackets (e.g. front portrait TurboHDR) deliver
+non-monotonic, ZSL-style frames (older shutter/ring timestamps)
+WITHOUT setting ANDROID_CONTROL_ENABLE_ZSL=true. AOSP's
+monotonic-timestamp guard in Camera3Stream::returnBuffer would then
+mark the out-of-order frame as CAMERA_BUFFER_STATUS_ERROR ->
+onCaptureBufferLost, starving the Oplus APS merge (one frame short
+of MERGE_NUMBER) so the photo never finishes saving.
+
+Snapshot buffers don't require monotonic timestamps, so skip the
+guard for any still capture (not only ZSL still captures).
+---
+ .../libcameraservice/device3/Camera3OutputUtils.cpp       | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp b/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp
+index 094395c797..74f648308c 100644
+--- a/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp
++++ b/services/camera/libcameraservice/device3/Camera3OutputUtils.cpp
+@@ -1031,8 +1031,14 @@ void collectAndRemovePendingOutputBuffers(bool useHalBufManager,
+         sp<NotificationListener> listener, InFlightRequest& request,
+         SessionStatsBuilder& sessionStatsBuilder,
+         std::vector<BufferToReturn> *returnableBuffers) {
++    // Oplus still-capture brackets (e.g. front portrait TurboHDR) deliver non-monotonic, ZSL-style
++    // frames (older shutter/ring timestamps) WITHOUT setting ANDROID_CONTROL_ENABLE_ZSL=true. AOSP's
++    // monotonic-timestamp guard in Camera3Stream::returnBuffer would then mark the out-of-order frame
++    // as CAMERA_BUFFER_STATUS_ERROR -> onCaptureBufferLost, starving the Oplus APS merge (one frame
++    // short of MERGE_NUMBER) so the photo never finishes saving. Snapshot buffers don't require
++    // monotonic timestamps, so skip the guard for any still capture (not only ZSL still captures).
+     bool timestampIncreasing =
+-            !((request.zslCapture && request.stillCapture) || request.hasInputBuffer);
++            !(request.stillCapture || request.hasInputBuffer);
+     nsecs_t readoutTimestamp = request.resultExtras.hasReadoutTimestamp ?
+             request.resultExtras.readoutTimestamp : 0;
+     collectReturnableOutputBuffers(useHalBufManager, halBufferManagedStreams, listener,
