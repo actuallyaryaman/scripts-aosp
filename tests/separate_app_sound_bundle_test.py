@@ -97,6 +97,29 @@ portable_target.write_bytes(b'// Fixture: another clean upstream revision.\n'+po
 git(portable['project'],'add',portable['relative'])
 git(portable['project'],'-c','commit.gpgsign=false','commit','-qm','Restore compatible revision')
 initial=state()
+# Upgrade the previous bundle on this different clean revision with group-writable files.
+script_text=SCRIPT.read_text()
+previous_encoded=re.search(r"PREVIOUS_PAYLOAD = '''(.*?)'''",script_text,re.S).group(1)
+previous_hash=re.search(r"PREVIOUS_BUNDLE_HASH = '(.*?)'",script_text).group(1)
+legacy=base/'legacy.sh'
+legacy_text=re.sub(r"BUNDLE_HASH = '.*?'",'BUNDLE_HASH = '+repr(previous_hash),script_text,count=1)
+legacy_text=re.sub(r"(?m)^PAYLOAD = '''.*?'''",lambda _:"PAYLOAD = '''"+previous_encoded+"'''",legacy_text,count=1,flags=re.S)
+legacy.write_text(legacy_text)
+legacy_result=subprocess.run(['bash',str(legacy),'--apply',str(root)],capture_output=True,text=True,umask=0o002)
+assert legacy_result.returncode==0,(legacy_result.stdout,legacy_result.stderr)
+old_applied=state();old_idx=indexes()
+assert 'upgrade_available' in run('--check').stdout
+assert state()==old_applied and indexes()==old_idx
+# Fail the second project of the upgrade, restoring the old feature and deleting only new files.
+upgrade_shim=shim.read_text().replace(repr(str(root/'frameworks/av')),repr(str(root/'packages/apps/Settings')))
+shim.write_text(upgrade_shim)
+run('--apply',False,env,umask=0o002);assert state()==old_applied and indexes()==old_idx
+run('--apply',umask=0o002);upgraded=state();assert indexes()==old_idx
+run('--check');run('--apply');assert state()==upgraded
+upgrade_journal=json.loads(journalpath.read_text());upgrade_journal['status']='applying'
+journalpath.write_text(json.dumps(upgrade_journal))
+run('--apply',umask=0o002);assert state()==upgraded and indexes()==old_idx
+run('--reverse');assert state()==initial and indexes()==old_idx
 # A manually partial bundle is reported and refused without trying to fill in missing files.
 project=next(iter(P['patches']));subprocess.run(['git','-C',str(root/project),'apply'],input=P['patches'][project].encode(),check=True)
 partial=state();run('--status',False);run('--apply',False);assert state()==partial

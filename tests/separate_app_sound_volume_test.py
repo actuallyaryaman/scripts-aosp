@@ -122,5 +122,7 @@ public final class VolumeRegression {
                     str(root / 'frameworks/base/services/core/java/com/android/server/audio/SeparateAppSoundController.java'),
                     str(root / 'frameworks/base/services/core/java/com/android/server/audio/AudioService.java'),
                     str(root / 'frameworks/base/packages/SystemUI/src/com/android/systemui/volume/VolumeDialogControllerImpl.java'),
-                    str(root / 'frameworks/base/services/tests/audio/src/com/android/server/audio/SeparateAppSoundVolumeStateTest.java')],
+                    str(root / 'frameworks/base/services/tests/audio/src/com/android/server/audio/SeparateAppSoundVolumeStateTest.java'),
+                    str(root / 'frameworks/base/packages/SystemUI/src/com/android/systemui/qs/tiles/SeparateAppSoundTile.java'),
+                    str(root / 'frameworks/base/packages/SystemUI/multivalentTests/src/com/android/systemui/qs/tiles/SeparateAppSoundTileTest.java')],
                    check=True, timeout=30)

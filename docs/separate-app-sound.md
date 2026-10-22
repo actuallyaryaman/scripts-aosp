@@ -17,6 +17,20 @@ Android noisy-device/focus handling resumes on disconnect; paused playback is no
 restarted automatically. An app choosing to stop playback for reasons unrelated to
 Android audio focus cannot be forced to continue by this feature.
 
+## Quick Settings tile
+
+Open the Quick Settings editor and add **Separate App Sound** (tile spec:
+`separate_app_sound`). It is available in the editor without changing the default
+tile layout. Tap to toggle the saved configuration; app selection and destination
+remain intact. If no apps are selected, tapping opens setup instead of enabling an
+empty configuration. Long press opens the Separate App Sound settings page directly.
+
+The highlighted state means the feature is enabled, including when it is waiting for
+a disconnected output. The secondary label reports the routing status. Settings and
+device changes refresh the tile through an event-driven notification; no polling is
+added. Switching users refreshes the current full user's configuration, and toggles
+are blocked during user switching or in unsupported profiles. Calls remain excluded.
+
 ## Architecture
 
 AudioService owns per-full-user AtomicFile configuration and registered render policies.
@@ -61,6 +75,12 @@ and interrupted-transaction recovery. Later edits or permission changes to insta
 files are protected. Copy the updated script to another server, then run `--check .`
 followed by `--apply .`; no repository downloads are needed by this script.
 
+The tile bundle also recognizes the previous complete Separate App Sound bundle.
+`--check` reports `upgrade_available`; `--apply` installs the tile and its supporting
+changes without removing the existing feature first. Upgrades retain scoped backups
+and support failure rollback and interrupted recovery. A partial or edited old bundle
+is refused. Upgrade before using the new script's `--reverse` on an old installation.
+
 ## Build and automated verification
 
 The maintainer always runs ROM builds and flashes personally. Agents and this script
@@ -72,6 +92,7 @@ Use your existing voltage_aston-cp2a-userdebug build configuration:
         AudioServiceTests audiopolicy_tests
     atest AudioServiceTests:com.android.server.audio.MediaFocusControlTest
     atest audiopolicy_tests:SeparateAppSoundMixTest
+    atest SystemUiRavenTests:com.android.systemui.qs.tiles.SeparateAppSoundTileTest
 
 API methods/constants are hidden; only framework-internal Binder and native AIDL change.
 Build all affected artifacts together; this is not an APK-only feature.
@@ -83,7 +104,8 @@ Run the bundled host transaction tests without building Android:
 Host bundle transaction tests cover clean revision differences, `664`/`600` baseline
 permissions, genuine conflicts, apply/reapply/reverse, dirty-file rejection, unrelated
 edit preservation, staged conflicts, partial state, and rollback after an injected
-second-project apply failure. Android tests require the relevant device/test
+second-project apply failure. Previous-bundle upgrades and interrupted upgrade recovery
+are also covered. Android tests require the relevant device/test
 runner; compiling a test does not demonstrate passing device behavior.
 
 ## Build failure fixed on 2026-10-08
@@ -109,6 +131,12 @@ run asynchronously outside audio volume/settings locks. See the
 The corrected build still needs compilation and physical validation by the maintainer.
 
 ## Aston hardware qualification (required before shipping)
+
+For the tile, verify tap off/on preserves the selected apps and output, an unconfigured
+tap opens setup, long press opens the correct page, Settings changes refresh its state,
+Bluetooth disconnect/reconnect updates its secondary label, and user switching does
+not change another user's selections. Tile/service Android tests have been added;
+host syntax checks do not compile or execute them.
 
 1. Bluetooth connected, music selected for Bluetooth, main output Phone: music and
    Instagram Reels must stay on separate outputs with no pause, fade or duck.
