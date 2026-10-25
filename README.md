@@ -87,6 +87,9 @@ must pass preflight before source changes occur.
 
 The camera installer remains self-contained: copy its single script to another
 host and run it with `--root`. See the [portability guide](docs/camera-portability.md).
+For a Codex session adapting it after ROM/device-tree updates, start with the
+[camera adaptation handoff](docs/camera-adaptation-handoff.md). It records the
+latest local rollback, target-server audit, rebase workflow and acceptance checks.
 
 ## Optional notifications and uploads
 
