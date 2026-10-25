@@ -2,12 +2,18 @@
 
 Updated **26 October 2026** for a Codex session on another server, with this toolkit
 at `vos/rom-tools`. The user requests implementation: adapt the standalone camera
-installer and its maintenance/tests to the receiving server's latest source trees.
+installer to the receiving server's latest source trees.
 Inspect that checkout and proceed with the implementation and host verification;
 the repository states are discoverable inputs, not questions for the user.
 
-Use the receiving checkout as the target. Keep implementation changes in
-`rom-tools` and use disposable source fixtures for apply/reverse tests. Leave live
+**Implementation allowlist: `scripts/features/apply-aston-camera.sh` is the only
+tracked file the receiving session may change.** Keep every other script,
+generator, test, manifest, README and document unchanged. Use temporary helpers,
+generator copies and test harnesses under `.local-build/` when needed; they are
+local working artifacts, not additional toolkit deliverables.
+
+Use the receiving checkout as the target and disposable source fixtures for
+apply/reverse tests. Leave live
 ROM source application, another sync, ROM builds and flashing to the maintainer
 unless separately requested. This handoff does not start another agent or require
 access to the originating chat, its local backups, or MemPalace.
@@ -61,7 +67,7 @@ Derive these inputs from the receiving checkout and record them in the delivery:
 - For each affected repository: path, current full HEAD, branch, dirty/index state, and whether an earlier camera port is installed.
 - Existing pinned upstream repository URLs and full commit IDs, their order/dependencies, and intended camera behavior. Use the resolved release bundle as the starting reference rather than selecting a new port.
 - Whether only source bases changed or the camera donor/app stack also changes. For changed assets, identify immutable donors, licenses/notices, file inventory and hashes.
-- An isolated candidate directory under the target's `.local-build/`; deliver toolkit changes and a tested installer, without live installation in this task.
+- An isolated candidate directory under the target's `.local-build/`; deliver only the adapted installer as a tracked change, without live installation in this task.
 
 Treat the commit set as desired behavior to investigate. Some effects may already exist, have moved to another owner, or need a semantic adaptation on the new base.
 
@@ -78,7 +84,7 @@ Compatibility depends on source context, API behavior and exact asset provenance
 Paths below are relative to the receiving `rom-tools` checkout:
 
 - `scripts/features/apply-aston-camera.sh`: released, self-contained installer and authoritative current embedded payload.
-- `maintainer/camera-port/installer.py`: runner source; keep it consistent with the embedded runner.
+- `maintainer/camera-port/installer.py`: read-only reference runner. Prefer retaining the existing embedded runner while adapting its payload; any necessary runtime correction belongs only in the standalone installer and must be tested there.
 - `maintainer/camera-port/{baseline.json,upstream.json,camera-blobs.json,previous-bundle.json}`: provenance and compatibility inputs.
 - `maintainer/camera-port/{prepare_bundle.py,export_bundle.py,finish_bundle.py,prepare_private_camera.py,private_camera_elf.py}`: staging, export and private asset transformations.
 - `docs/{cameraport.md,camera-maintenance.md,camera-portability.md}`: usage, generation and prior audit coverage.
@@ -96,9 +102,9 @@ Read the relevant target project's instructions first. Preserve a copy of the or
 
 4. **Resolve assets separately.** Classify each existing managed asset as expected input, expected output, known legacy input or unknown content. Keep the original pinned donors when only source trees change. Approve replacement input hashes only after proving their provenance and transformation requirements. For a changed donor/app commit, regenerate and review the full inventory, paths, hashes, build references and ELF dependencies together. Retain APS build-ID checks and exact transformation input/output hashes; investigate unknown blobs rather than broadening allowlists to make preflight pass.
 
-5. **Export a candidate from reviewed staging.** Update the maintainer machinery in an isolated checkout as needed. `prepare_bundle.py` contains assumptions about the original trees/patches and can require adaptation; running the original preparation command is not a generic rebase solution. `finish_bundle.py` and `prepare_private_camera.py` are preparation fragments, not standalone commands. Review the resolved diff, asset manifest, runner consistency, bundle ID and whole-script SHA256 before replacing any release file.
+5. **Export a candidate from reviewed staging.** Keep checked-in maintainer machinery untouched. Use temporary helpers or generator copies under `.local-build/` to construct the reviewed payload and replace the standalone installer's payload. `prepare_bundle.py` contains assumptions about the original trees/patches; running it unchanged is not a generic rebase solution. `finish_bundle.py` and `prepare_private_camera.py` are preparation fragments, not standalone commands. Review the resolved diff, asset inventory, embedded runner, recomputed bundle ID and whole-script SHA256 before replacing the installer. Retain the schema, per-file hashes, modes and special source-entry metadata. The frozen external manifests describe the original reference; report candidate metadata from the candidate itself rather than updating those files.
 
-6. **Verify the exact candidate.** Add or use explicit candidate-path selection in the test harness. Existing tests commonly load the released installer relative to their own file; `ROM_ROOT` selects source trees and does not select a candidate script. Record which script and hashes each test used. Complete the acceptance checks below in isolated fixtures before proposing a live application.
+6. **Verify the exact candidate.** Keep checked-in tests untouched. Use existing candidate selection where available, or temporary copies/harnesses that select the candidate explicitly. Existing tests commonly load the released installer relative to their own file; `ROM_ROOT` selects source trees and does not select a candidate script. If the embedded runner changes, exercise its actual code instead of silently testing only the frozen reference runner. Record which script and hashes each test used. Complete the acceptance checks below in isolated fixtures before proposing a live application.
 
 ## Historical failure checklist: verify against the target
 
@@ -127,7 +133,7 @@ com/oplus/os/WaveformEffect.java
 com/oplus/osense/OsenseResEventClient.java
 ```
 
-For a source rebase, a staging-only `rebase_bundle.py` can recover each old
+For a source rebase, a temporary helper under `.local-build/` can recover each old
 pre-image from the recorded baseline commit, verify `before_sha256`, apply the
 resolved patch, and verify `after_sha256`. Those baseline pre-images were checked
 successfully on the originating host for all 15 paths. If Git objects are missing,
@@ -168,14 +174,14 @@ On 23 October, the reference installer was freshly inspected:
 - Embedded bundle: `864baa0dc2cc3e2c5009`; 188 source entries, 1,333 assets, 26 private ELF transformations.
 - Donor: `49904d23ca16083fbf101c5a50e1eb451d6b45d8`; app stack: `d78f9c1fe4cfee562a298960c3bcabc86260aa6f`.
 
-The checked-in `previous-bundle.json` contains only 1,329 assets, and `export_bundle.py` replaces its newly assembled asset list with that older list when it exists. Use the complete released manifest explicitly in adapted export machinery and review inventory differences by path and metadata. Keep legacy compatibility data independently. For this source-only rebase, retain all 1,333 asset entries and 26 transformations unless a reviewed change explains the difference. Source entry counts can change when current upstream already supplies an effect, but account for every original effect. Older documentation also lists a different bundle ID; identify the actual payload and whole-script hash directly.
+The checked-in `previous-bundle.json` contains only 1,329 assets, and `export_bundle.py` replaces its newly assembled asset list with that older list when it exists. Keep both files unchanged. Use the complete released manifest explicitly in temporary export tooling and review inventory differences by path and metadata. Keep legacy compatibility data independently. For this source-only rebase, retain all 1,333 asset entries and 26 transformations unless a reviewed change explains the difference. Source entry counts can change when current upstream already supplies an effect, but account for every original effect. Older documentation also lists a different bundle ID; identify the actual payload and whole-script hash directly.
 
-Likely implementation locations: add the staging rebase entry point beside the
-existing generators, adapt `export_bundle.py` to consume the explicit full release
-manifest and reviewed replacement approvals, and add explicit candidate selection
-to the camera tests. Update `camera-maintenance.md` with the reproducible new route.
-Retain the original baseline and legacy source patches as versioned provenance;
-do not silently overwrite them or claim all old/new base combinations are supported.
+The final tracked diff must contain only `scripts/features/apply-aston-camera.sh`.
+Keep any rebase helper, reviewed replacement approvals, generated diffs, baseline
+maps and candidate-specific test harness under `.local-build/`. Preserve all
+original checked-in baselines, legacy patches and documentation. Keep enough local
+staging evidence to reproduce this installer-only adaptation; do not assume the
+unchanged historical generators will reproduce the new payload without that work.
 
 ## Acceptance and delivery
 
@@ -197,16 +203,22 @@ treating a fixture setup failure as a camera regression or weakening assertions.
 
 Preserve the runner's complete-already-applied check before forward patching. The released runner supports boundary offsets using `--unidiff-zero` while retaining patch context; keep conflict refusal strict. Do not introduce reject-file or automatic three-way fallback into live installation.
 
-Deliver the candidate installer, SHA256, resolved source diff, per-repo baseline/commit map, complete asset inventory/provenance, maintainer changes, and test results naming the exact candidate. Report source compatibility, asset readiness, compilation/policy validation and device behavior separately. A successful preflight can still report required asset downloads.
+Deliver the adapted installer as the only tracked modification. Report its SHA256,
+embedded bundle ID and test results; keep resolved diffs, baseline/commit maps and
+asset provenance as local evidence outside the tracked toolkit. Report source
+compatibility, asset readiness, compilation/policy validation and device behavior
+separately. A successful preflight can still report required asset downloads.
 
-Before handing back the toolkit, run its standalone tests and bundle-aware
+Before handing back the installer, run applicable unchanged tests and the bundle-aware
 publication audit. Keep scratch files, credentials, build logs, backups and local
 diagnostics outside the publishable file set. The maintainer will run the next ROM
 build and flash. Give the exact root-relative preflight/apply commands for the
 tested installer and list the remaining build/device checks. A dry run succeeding
 is not a claim that the updated camera builds or works on device.
 
-Completion means implemented toolkit changes, a reproducibly generated candidate
-whose checks used that exact file, preserved unrelated work, documented unresolved
-issues and a clear ready/not-ready decision. If a required API or blob provenance
-cannot be resolved, identify the precise blocker rather than disabling a guard.
+Completion means the installer-only change, a reproducible candidate whose checks
+used that exact file, preserved unrelated work, reported unresolved issues and a
+clear ready/not-ready decision. Verify every other tracked file is unchanged from
+the receiving session's starting state, preserving pre-existing edits. If a
+required API or blob provenance cannot be resolved, identify the precise blocker
+rather than disabling a guard.
